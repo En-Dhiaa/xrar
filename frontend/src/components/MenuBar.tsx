@@ -7,6 +7,7 @@ interface MenuBarProps {
   lang: Language;
   onNew: () => void;
   onOpen: () => void;
+  onOpenPdf?: () => void;
   onExtract: () => void;
   onTest: () => void;
   onView: () => void;
@@ -27,6 +28,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   lang,
   onNew,
   onOpen,
+  onOpenPdf,
   onExtract,
   onTest,
   onView,
@@ -96,6 +98,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               <span>{t.menu.openArchive}</span>
               <span className="text-slate-400 font-mono text-[10px]">Ctrl+O</span>
             </button>
+            {onOpenPdf && (
+              <button
+                onClick={() => handleAction(onOpenPdf)}
+                className="w-full text-start px-3 py-1.5 hover:bg-rose-600/30 hover:text-white transition flex justify-between"
+              >
+                <span>{lang === 'ar' ? 'فتح مستند PDF...' : 'Open PDF Document...'}</span>
+                <span className="text-slate-400 font-mono text-[10px]">Ctrl+P</span>
+              </button>
+            )}
             <div className="h-px bg-slate-700/80 my-1" />
             <button
               onClick={() => handleAction(onSelectAll)}

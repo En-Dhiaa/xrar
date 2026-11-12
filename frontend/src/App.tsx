@@ -15,6 +15,7 @@ import { BenchmarkModal } from './components/BenchmarkModal';
 import { DuplicateFinderModal } from './components/DuplicateFinderModal';
 import { FilePreviewModal } from './components/FilePreviewModal';
 import { SettingsModal } from './components/SettingsModal';
+import { PdfViewerWorkspace } from './components/pdf/PdfViewerWorkspace';
 import * as ipc from './api/ipc';
 import {
   ArchiveItem,
@@ -33,8 +34,9 @@ export const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
   const [activeTab, setActiveTab] = useState('home');
 
-  // Operational Mode: File Manager (Explorer) vs Archive Manager (WinRAR)
-  const [mode, setMode] = useState<'file_manager' | 'archive_manager'>('file_manager');
+  // Operational Mode: File Manager (Explorer) vs Archive Manager (WinRAR) vs PDF Viewer (Foxit-style)
+  const [mode, setMode] = useState<'file_manager' | 'archive_manager' | 'pdf_viewer'>('file_manager');
+  const [currentPdfPath, setCurrentPdfPath] = useState<string | null>(null);
 
   // File Manager State
   const [currentDirPath, setCurrentDirPath] = useState<string>('C:\\');
@@ -105,6 +107,13 @@ export const App: React.FC = () => {
         const driveList = await ipc.getDrives();
         if (driveList.length > 0) {
           setDrives(driveList);
+        }
+
+        // Check if application was launched with a PDF file (e.g. double-click on .pdf)
+        const initialPdf = (window as any).__INITIAL_PDF__;
+        if (initialPdf && typeof initialPdf === 'string') {
+          handleOpenPdf(initialPdf);
+          return;
         }
 
         // Check if application was launched with an archive file (e.g. CLI or double-click on .xrar)
@@ -229,6 +238,24 @@ export const App: React.FC = () => {
       }
     } catch (err: any) {
       alert(`Error picking archive: ${err}`);
+    }
+  };
+
+  // Open PDF file into PDF Reader Mode
+  const handleOpenPdf = (filePath: string) => {
+    setCurrentPdfPath(filePath);
+    setMode('pdf_viewer');
+  };
+
+  // Browse and open a PDF file via native dialog
+  const handleBrowseOpenPdf = async () => {
+    try {
+      const picked = await ipc.browsePdfFile();
+      if (picked) {
+        handleOpenPdf(picked);
+      }
+    } catch (err: any) {
+      alert(`Error opening PDF: ${err}`);
     }
   };
 
@@ -461,6 +488,18 @@ export const App: React.FC = () => {
     }
   };
 
+  if (mode === 'pdf_viewer') {
+    return (
+      <PdfViewerWorkspace
+        initialPdfPath={currentPdfPath}
+        onExit={() => {
+          setMode('file_manager');
+          setCurrentPdfPath(null);
+        }}
+      />
+    );
+  }
+
   return (
     <div className={`h-screen flex flex-col font-sans select-none overflow-hidden ${theme === 'dark' ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'}`}>
       {/* Top Menu Bar */}
@@ -468,6 +507,7 @@ export const App: React.FC = () => {
         lang={lang}
         onNew={() => setIsCompressOpen(true)}
         onOpen={handleBrowseOpenArchive}
+        onOpenPdf={handleBrowseOpenPdf}
         onExtract={() => archivePath && setIsExtractOpen(true)}
         onTest={() => archivePath && handleTestArchive()}
         onView={() => {
@@ -514,6 +554,7 @@ export const App: React.FC = () => {
         onBenchmark={() => setIsBenchmarkOpen(true)}
         onComment={() => setIsCommentOpen(true)}
         onProtect={() => setIsCompressOpen(true)}
+        onOpenPdf={handleBrowseOpenPdf}
         onSettings={() => setIsSettingsOpen(true)}
         hasActiveArchive={mode === 'archive_manager'}
         hasSelection={selectedPaths.length > 0}
@@ -546,6 +587,7 @@ export const App: React.FC = () => {
           archiveCurrentFolder={archiveCurrentFolder}
           onNavigateArchiveFolder={setArchiveCurrentFolder}
           onCloseArchive={handleCloseArchive}
+          onOpenPdfFile={handleOpenPdf}
           onPreview={handlePreview}
           onExtractItem={() => archivePath && setIsExtractOpen(true)}
           onDeleteItem={handleDeleteSelected}

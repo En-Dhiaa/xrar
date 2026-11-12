@@ -12,7 +12,8 @@ Write-Host "   XRAR — Extreme Compression Archive v$Version Production Build" 
 Write-Host "=================================================================" -ForegroundColor Cyan
 
 # 1. Ensure MinGW64 and Cargo toolchain are present in PATH
-$env:PATH = "C:\msys64\mingw64\bin;$env:USERPROFILE\.cargo\bin;$env:PATH"
+$cargoBin = Join-Path $env:USERPROFILE ".cargo\bin"
+$env:PATH = "C:\msys64\mingw64\bin;$cargoBin;$env:PATH"
 
 # 2. Build Frontend Production Assets
 Write-Host "`n[1/6] Building Production React/TypeScript Frontend..." -ForegroundColor Yellow
@@ -27,7 +28,7 @@ Set-Location $WorkspaceRoot
 Copy-Item "$WorkspaceRoot\apps\desktop\assets\icon.png" "$WorkspaceRoot\frontend\dist\icon.png" -Force
 
 # 3. Build Core Crates, SFX & CLI
-Write-Host "`n[2/6] Compiling XRAR CLI & SFX (Release)..." -ForegroundColor Yellow
+Write-Host "`n[2/6] Compiling XRAR CLI and SFX (Release)..." -ForegroundColor Yellow
 & cargo build --release -p xrar -p xrar-sfx-stub
 if ($LASTEXITCODE -ne 0) {
     Write-Error "CLI/SFX compilation failed."

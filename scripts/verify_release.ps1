@@ -119,4 +119,4 @@ Write-Host "====================================================================
 
 # Output SHA-256 Checksums
 Write-Host "`nSHA-256 Release Checksums:" -ForegroundColor Cyan
-Get-FileHash -Path $RequiredArtifacts -Algorithm SHA256 | Select-Object Hash, @{Name="File"; Expression={Split-Path $_.Path -Leaf}} | Format-Table -AutoSize
+Get-FileHash -Path $RequiredArtifacts -Algorithm SHA256 | Select-Object Hash, @{Name = "File"; Expression = { Split-Path $_.Path -Leaf } } | Format-Table -AutoSize

@@ -32,8 +32,28 @@
 - **Multi-Format Compatibility**: Seamless reading and safe extraction of `.xrar`, `.zip` (ZIP64), `.tar`, `.tar.gz`, `.rar` (extraction compatibility), and `.iso` disk images.
 - **Defensive Path Security**: Strict protection against Zip Slip, directory traversal (`../`), reserved Windows device names (`CON`, `PRN`, `AUX`), and decompression resource bombs.
 - **Bilingual Desktop UI**: First-class support for both **English (LTR)** and **Arabic (RTL)** with high-density technical aesthetics, real-time telemetry, and safe sandboxed preview.
-- **Windows Explorer Integration**: Native right-click context menu options (`Add to .xrar`, `Extract here`, `Test archive`).
+- **Windows Explorer Integration**: Native right-click context menu options (`Add to .xrar`, `Extract here`, `Test archive`, `Open in XRAR PDF Reader`).
+- **Professional Foxit-Grade PDF Viewer**: Dedicated integrated workspace for opening, viewing, searching, and managing PDF documents directly with multi-tab browsing, thumbnails, outline bookmarks, high-DPI canvas rendering, and text selection with `Ctrl+C` copying.
 - **Full-Featured Automation CLI (`xrar.exe`)**: First-class command-line tool with machine-readable `--json` output for CI/CD pipelines.
+
+---
+
+## 📑 Integrated Professional PDF Viewer
+
+XRAR functions as both an archive manager and a high-performance, sandboxed PDF reader:
+
+- **Multi-Document Tabs**: Open multiple PDFs simultaneously (`[report.pdf] [invoice.pdf]`) with instant tab switching.
+- **Foxit-Style Navigation**: Smooth wheel scrolling, keyboard navigation (`PageUp`, `PageDown`, `Home`, `End`), and Ctrl+wheel zoom.
+- **Reading Modes & Presets**: Single page, continuous, two-page spread, two-page continuous, Fit Page, Fit Width, and zoom from 25% to 400%.
+- **Fast Local Search (`Ctrl+F`)**: Match highlighting, result counter, previous/next match navigation, and scanned document detection with OCR prompts.
+- **Multi-Tab Sidebar**:
+  - **Thumbnails**: Real-time asynchronous thumbnail rendering with lazy virtualization for large documents.
+  - **Bookmarks & Outline**: Expandable hierarchical document outline with one-click page jumping.
+  - **Search Results**: Filtered list of snippet occurrences across all pages.
+  - **Attachments**: View embedded file attachments.
+- **High-DPI Rendering & Text Layer**: Crisp rendering on 4K/retina monitors with a transparent selection layer for selecting and copying text (`Ctrl+C`) and a contextual action menu (Copy, Search Web, Highlight, Add Note).
+- **Windows Shell Integration**: Register `.pdf` file associations, Explorer Preview Pane handler (`IPreviewHandler`), thumbnail provider (`IThumbnailProvider`), and context menu entries.
+- **100% Offline & Private**: Zero network requests, zero telemetry, fully offline reading.
 
 ---
 

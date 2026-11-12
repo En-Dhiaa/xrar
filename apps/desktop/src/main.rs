@@ -255,19 +255,134 @@ fn browse_save_archive() -> Option<String> {
         .map(|p| p.to_string_lossy().to_string())
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct PdfIntegrationStatus {
+    pub file_association: bool,
+    pub preview_handler: bool,
+    pub thumbnail_provider: bool,
+    pub context_menu: bool,
+}
+
+/// Reads binary PDF bytes from filesystem
+#[tauri::command]
+fn read_pdf_bytes(path: String) -> Result<Vec<u8>, String> {
+    log_startup(&format!("Reading PDF document bytes: {}", path));
+    fs::read(&path).map_err(|e| format!("Failed to read PDF file '{}': {}", path, e))
+}
+
+/// Saves modified or rotated PDF bytes to disk
+#[tauri::command]
+fn save_pdf_bytes(path: String, data: Vec<u8>) -> Result<(), String> {
+    log_startup(&format!("Saving PDF document ({} bytes) to: {}", data.len(), path));
+    fs::write(&path, &data).map_err(|e| format!("Failed to write PDF file '{}': {}", path, e))
+}
+
+/// Native PDF file picker dialog
+#[tauri::command]
+fn browse_pdf_file() -> Option<String> {
+    rfd::FileDialog::new()
+        .add_filter("PDF Documents (*.pdf)", &["pdf"])
+        .add_filter("All Files (*.*)", &["*"])
+        .pick_file()
+        .map(|p| p.to_string_lossy().to_string())
+}
+
+/// Native PDF save file picker dialog
+#[tauri::command]
+fn browse_save_pdf() -> Option<String> {
+    rfd::FileDialog::new()
+        .add_filter("PDF Documents (*.pdf)", &["pdf"])
+        .save_file()
+        .map(|p| p.to_string_lossy().to_string())
+}
+
+/// Registers PDF file associations, Windows Explorer Preview Handler, and Thumbnail Provider in Registry
+#[tauri::command]
+fn register_pdf_associations(
+    set_default: bool,
+    enable_preview: bool,
+    enable_thumbnails: bool,
+    enable_context_menu: bool,
+) -> Result<(), String> {
+    let gui_exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let gui_path = gui_exe.to_string_lossy().replace('/', "\\");
+    let icon_path = gui_exe.with_file_name("icon.ico").to_string_lossy().replace('/', "\\");
+
+    let mut reg_commands = Vec::new();
+
+    if set_default {
+        reg_commands.extend([
+            format!("reg add HKCU\\Software\\Classes\\.pdf /ve /d \"XRAR.Pdf\" /f"),
+            format!("reg add HKCU\\Software\\Classes\\XRAR.Pdf /ve /d \"PDF Document\" /f"),
+            format!("reg add HKCU\\Software\\Classes\\XRAR.Pdf\\DefaultIcon /ve /d \"\\\"{}\\\",0\" /f", icon_path),
+            format!("reg add HKCU\\Software\\Classes\\XRAR.Pdf\\shell\\open /ve /d \"Open with XRAR PDF Reader\" /f"),
+            format!("reg add HKCU\\Software\\Classes\\XRAR.Pdf\\shell\\open\\command /ve /d \"\\\"{}\\\" \\\"%1\\\"\" /f", gui_path),
+        ]);
+    }
+
+    if enable_context_menu {
+        reg_commands.extend([
+            format!("reg add HKCU\\Software\\Classes\\*\\shell\\XRAR_Pdf /ve /d \"Open in XRAR PDF Reader\" /f"),
+            format!("reg add HKCU\\Software\\Classes\\*\\shell\\XRAR_Pdf /v Icon /d \"\\\"{}\\\",0\" /f", icon_path),
+            format!("reg add HKCU\\Software\\Classes\\*\\shell\\XRAR_Pdf\\command /ve /d \"\\\"{}\\\" \\\"%1\\\"\" /f", gui_path),
+        ]);
+    }
+
+    if enable_preview {
+        reg_commands.extend([
+            format!("reg add HKCU\\Software\\Classes\\.pdf\\shellex\\{{8895b1c6-b41f-4c1c-a562-0d564250836f}} /ve /d \"{{dc6ad3ee-0351-4b47-9777-94d3f322920c}}\" /f"),
+        ]);
+    }
+
+    if enable_thumbnails {
+        reg_commands.extend([
+            format!("reg add HKCU\\Software\\Classes\\.pdf\\shellex\\{{e357fccd-a995-4576-b01f-234630154e96}} /ve /d \"{{dc6ad3ee-0351-4b47-9777-94d3f322920c}}\" /f"),
+        ]);
+    }
+
+    for cmd in &reg_commands {
+        let _ = std::process::Command::new("cmd").args(["/c", cmd]).output();
+    }
+
+    Ok(())
+}
+
+/// Checks current Windows PDF integration diagnostics
+#[tauri::command]
+fn check_pdf_integration_status() -> Result<PdfIntegrationStatus, String> {
+    let check_key = |key: &str| -> bool {
+        let out = std::process::Command::new("reg")
+            .args(["query", key])
+            .output();
+        out.map(|o| o.status.success()).unwrap_or(false)
+    };
+
+    let file_association = check_key("HKCU\\Software\\Classes\\.pdf");
+    let preview_handler = check_key("HKCU\\Software\\Classes\\.pdf\\shellex\\{8895b1c6-b41f-4c1c-a562-0d564250836f}");
+    let thumbnail_provider = check_key("HKCU\\Software\\Classes\\.pdf\\shellex\\{e357fccd-a995-4576-b01f-234630154e96}");
+    let context_menu = check_key("HKCU\\Software\\Classes\\*\\shell\\XRAR_Pdf");
+
+    Ok(PdfIntegrationStatus {
+        file_association,
+        preview_handler,
+        thumbnail_provider,
+        context_menu,
+    })
+}
+
 fn main() {
     log_startup("==================================================");
     log_startup("XRAR Desktop Application initializing");
     log_startup("Runtime: Tauri 2 + Microsoft Edge WebView2 Control");
 
-    // Check for archive path passed via command line (e.g. Open With / double-click .xrar)
-    let initial_archive = std::env::args().nth(1).filter(|arg| {
+    // Check for file path passed via command line (e.g. Open With / double-click .xrar or .pdf)
+    let initial_file = std::env::args().nth(1).filter(|arg| {
         let path = Path::new(arg);
         path.exists() && !arg.starts_with('-')
     });
 
-    if let Some(ref arch) = initial_archive {
-        log_startup(&format!("Invoked with archive file argument: {}", arch));
+    if let Some(ref file_path) = initial_file {
+        log_startup(&format!("Invoked with file argument: {}", file_path));
     }
 
     let builder = tauri::Builder::default()
@@ -285,17 +400,36 @@ fn main() {
             browse_folder,
             browse_files,
             browse_archive_file,
-            browse_save_archive
+            browse_save_archive,
+            read_pdf_bytes,
+            save_pdf_bytes,
+            browse_pdf_file,
+            browse_save_pdf,
+            register_pdf_associations,
+            check_pdf_integration_status
         ])
         .setup(move |app| {
             log_startup("Tauri application setup complete. Window created.");
-            if let Some(ref arch_path) = initial_archive {
+            if let Some(ref file_path) = initial_file {
+                let is_pdf = file_path.to_lowercase().ends_with(".pdf");
                 let main_window = app.get_webview_window("main");
                 if let Some(win) = main_window {
                     let _ = win.eval(&format!(
-                        "window.__INITIAL_ARCHIVE__ = {};",
-                        serde_json::to_string(arch_path).unwrap_or_default()
+                        "window.__INITIAL_FILE__ = {{ path: {}, isPdf: {} }};",
+                        serde_json::to_string(file_path).unwrap_or_default(),
+                        is_pdf
                     ));
+                    if is_pdf {
+                        let _ = win.eval(&format!(
+                            "window.__INITIAL_PDF__ = {};",
+                            serde_json::to_string(file_path).unwrap_or_default()
+                        ));
+                    } else {
+                        let _ = win.eval(&format!(
+                            "window.__INITIAL_ARCHIVE__ = {};",
+                            serde_json::to_string(file_path).unwrap_or_default()
+                        ));
+                    }
                 }
             }
             Ok(())

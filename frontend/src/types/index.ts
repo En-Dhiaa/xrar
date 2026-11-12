@@ -89,3 +89,35 @@ export interface TestResult {
   tested_files: number;
   errors: string[];
 }
+
+export interface PdfIntegrationStatus {
+  file_association: boolean;
+  preview_handler: boolean;
+  thumbnail_provider: boolean;
+  context_menu: boolean;
+}
+
+export interface PdfDocumentTab {
+  id: string;
+  filePath: string;
+  fileName: string;
+  fileSize: number;
+  currentPage: number;
+  totalPages: number;
+  zoom: number;
+  rotation: number;
+  viewMode: 'single' | 'continuous' | 'two_page' | 'two_page_continuous';
+}
+
+export interface PdfOutlineItem {
+  title: string;
+  pageNumber?: number;
+  dest?: any;
+  items?: PdfOutlineItem[];
+}
+
+export interface PdfSearchResult {
+  pageNumber: number;
+  matchIndex: number;
+  snippet: string;
+}

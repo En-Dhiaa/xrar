@@ -16,6 +16,7 @@ import {
   Languages,
   Sun,
   Moon,
+  FileText,
 } from 'lucide-react';
 import { en } from '../locales/en';
 import { ar } from '../locales/ar';
@@ -38,6 +39,7 @@ interface ToolbarProps {
   onBenchmark: () => void;
   onComment: () => void;
   onProtect: () => void;
+  onOpenPdf?: () => void;
   onSettings: () => void;
   hasActiveArchive: boolean;
   hasSelection: boolean;
@@ -60,6 +62,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onBenchmark,
   onComment,
   onProtect,
+  onOpenPdf,
   onSettings,
   hasActiveArchive,
   hasSelection,
@@ -112,11 +115,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <button
           onClick={onExtract}
           disabled={!hasActiveArchive}
-          className={`flex flex-col items-center justify-center min-w-[56px] h-[54px] px-2 rounded-lg border transition group active:scale-95 ${
-            hasActiveArchive
+          className={`flex flex-col items-center justify-center min-w-[56px] h-[54px] px-2 rounded-lg border transition group active:scale-95 ${hasActiveArchive
               ? 'bg-slate-800/60 hover:bg-blue-600/20 hover:border-blue-500/40 border-transparent text-slate-200 hover:text-white'
               : 'border-transparent text-slate-600 cursor-not-allowed opacity-40'
-          }`}
+            }`}
           title={`${t.toolbar.extract} (Alt+E)`}
         >
           <FolderDown className="w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform mb-0.5" />
@@ -127,11 +129,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <button
           onClick={onTest}
           disabled={!hasActiveArchive}
-          className={`flex flex-col items-center justify-center min-w-[50px] h-[54px] px-2 rounded-lg border transition group active:scale-95 ${
-            hasActiveArchive
+          className={`flex flex-col items-center justify-center min-w-[50px] h-[54px] px-2 rounded-lg border transition group active:scale-95 ${hasActiveArchive
               ? 'bg-slate-800/60 hover:bg-teal-600/20 hover:border-teal-500/40 border-transparent text-slate-200 hover:text-white'
               : 'border-transparent text-slate-600 cursor-not-allowed opacity-40'
-          }`}
+            }`}
           title={`${t.toolbar.test} (Alt+T)`}
         >
           <CheckCircle2 className="w-5 h-5 text-teal-400 group-hover:scale-110 transition-transform mb-0.5" />
@@ -142,11 +143,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <button
           onClick={onView}
           disabled={!hasActiveArchive}
-          className={`flex flex-col items-center justify-center min-w-[50px] h-[54px] px-2 rounded-lg border transition group active:scale-95 ${
-            hasActiveArchive
+          className={`flex flex-col items-center justify-center min-w-[50px] h-[54px] px-2 rounded-lg border transition group active:scale-95 ${hasActiveArchive
               ? 'bg-slate-800/60 hover:bg-amber-600/20 hover:border-amber-500/40 border-transparent text-slate-200 hover:text-white'
               : 'border-transparent text-slate-600 cursor-not-allowed opacity-40'
-          }`}
+            }`}
           title={`${t.toolbar.view} (Alt+V)`}
         >
           <Eye className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform mb-0.5" />
@@ -157,11 +157,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <button
           onClick={onDelete}
           disabled={!hasActiveArchive || !hasSelection}
-          className={`flex flex-col items-center justify-center min-w-[50px] h-[54px] px-2 rounded-lg border transition group active:scale-95 ${
-            hasActiveArchive && hasSelection
+          className={`flex flex-col items-center justify-center min-w-[50px] h-[54px] px-2 rounded-lg border transition group active:scale-95 ${hasActiveArchive && hasSelection
               ? 'bg-slate-800/60 hover:bg-rose-600/20 hover:border-rose-500/40 border-transparent text-slate-200 hover:text-rose-300'
               : 'border-transparent text-slate-600 cursor-not-allowed opacity-40'
-          }`}
+            }`}
           title={`${t.toolbar.delete} (Del)`}
         >
           <Trash2 className="w-5 h-5 text-rose-400 group-hover:scale-110 transition-transform mb-0.5" />
@@ -237,6 +236,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <Lock className="w-5 h-5 text-teal-400 group-hover:scale-110 transition-transform mb-0.5" />
           <span className="text-[11px] font-medium leading-tight">{t.toolbar.protect}</span>
         </button>
+
+        {/* PDF Reader Workspace button */}
+        {onOpenPdf && (
+          <button
+            onClick={onOpenPdf}
+            className="flex flex-col items-center justify-center min-w-[56px] h-[54px] px-2 rounded-lg bg-slate-800/60 hover:bg-rose-600/20 hover:border-rose-500/40 border border-transparent text-slate-200 hover:text-white transition group active:scale-95"
+            title={lang === 'ar' ? 'قارئ مستندات PDF المتقدم' : 'PDF Reader Workspace'}
+          >
+            <FileText className="w-5 h-5 text-rose-400 group-hover:scale-110 transition-transform mb-0.5" />
+            <span className="text-[11px] font-medium leading-tight">{lang === 'ar' ? 'قارئ PDF' : 'PDF Reader'}</span>
+          </button>
+        )}
       </div>
 
       {/* Utilities: Language, Theme, Settings */}

@@ -4,6 +4,7 @@ import {
   BenchmarkReport,
   DuplicateGroup,
   FsItem,
+  PdfIntegrationStatus,
   TestResult,
 } from '../types';
 
@@ -116,5 +117,56 @@ export async function browseArchiveFile(): Promise<string | null> {
 export async function browseSaveArchive(): Promise<string | null> {
   if (!isRunningInTauri()) return null;
   return await invoke<string | null>('browse_save_archive');
+}
+
+export async function readPdfBytes(path: string): Promise<Uint8Array> {
+  if (!isRunningInTauri()) {
+    throw new Error('PDF native loader requires desktop environment');
+  }
+  const bytes = await invoke<number[]>('read_pdf_bytes', { path });
+  return new Uint8Array(bytes);
+}
+
+export async function savePdfBytes(path: string, data: Uint8Array | number[]): Promise<void> {
+  if (!isRunningInTauri()) return;
+  const arr = Array.from(data);
+  await invoke('save_pdf_bytes', { path, data: arr });
+}
+
+export async function browsePdfFile(): Promise<string | null> {
+  if (!isRunningInTauri()) return null;
+  return await invoke<string | null>('browse_pdf_file');
+}
+
+export async function browseSavePdf(): Promise<string | null> {
+  if (!isRunningInTauri()) return null;
+  return await invoke<string | null>('browse_save_pdf');
+}
+
+export async function registerPdfAssociations(
+  setDefault: boolean,
+  preview: boolean,
+  thumbnail: boolean,
+  contextMenu: boolean
+): Promise<void> {
+  if (!isRunningInTauri()) return;
+  await invoke('register_pdf_associations', {
+    setDefault,
+    enablePreview: preview,
+    enableThumbnails: thumbnail,
+    enableContextMenu: contextMenu,
+  });
+}
+
+export async function checkPdfIntegrationStatus(): Promise<PdfIntegrationStatus> {
+  if (!isRunningInTauri()) {
+    return {
+      file_association: true,
+      preview_handler: true,
+      thumbnail_provider: true,
+      context_menu: true,
+    };
+  }
+  return await invoke<PdfIntegrationStatus>('check_pdf_integration_status');
 }
 

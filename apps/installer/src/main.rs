@@ -91,6 +91,13 @@ fn register_system_integration(install_dir: &Path, associate_xrar: bool, context
             format!("reg add HKCU\\Software\\Classes\\Directory\\shell\\XRAR /v Icon /d \"\\\"{}\\\",0\" /f", icon_path),
             format!("reg add HKCU\\Software\\Classes\\Directory\\shell\\XRAR\\shell\\Compress /ve /d \"Compress Folder with XRAR\" /f"),
             format!("reg add HKCU\\Software\\Classes\\Directory\\shell\\XRAR\\shell\\Compress\\command /ve /d \"\\\"{}\\\" create \\\"%1.xrar\\\" \\\"%1\\\" --solid\" /f", cli_path),
+            // PDF Explorer Context Menu & Integration
+            format!("reg add HKCU\\Software\\Classes\\SystemFileAssociations\\.pdf\\shell\\XRAR.PdfReader /ve /d \"Open in XRAR PDF Reader\" /f"),
+            format!("reg add HKCU\\Software\\Classes\\SystemFileAssociations\\.pdf\\shell\\XRAR.PdfReader /v Icon /d \"\\\"{}\\\",0\" /f", icon_path),
+            format!("reg add HKCU\\Software\\Classes\\SystemFileAssociations\\.pdf\\shell\\XRAR.PdfReader\\command /ve /d \"\\\"{}\\\" \\\"%1\\\"\" /f", gui_path),
+            format!("reg add HKCU\\Software\\Classes\\XRAR.PdfDocument /ve /d \"PDF Document (XRAR)\" /f"),
+            format!("reg add HKCU\\Software\\Classes\\XRAR.PdfDocument\\DefaultIcon /ve /d \"\\\"{}\\\",0\" /f", icon_path),
+            format!("reg add HKCU\\Software\\Classes\\XRAR.PdfDocument\\shell\\open\\command /ve /d \"\\\"{}\\\" \\\"%1\\\"\" /f", gui_path),
         ]);
     }
 
@@ -265,6 +272,8 @@ fn execute_uninstall() -> ExitCode {
     let unreg_commands = [
         "reg delete HKCU\\Software\\Classes\\.xrar /f",
         "reg delete HKCU\\Software\\Classes\\XRAR.Archive /f",
+        "reg delete HKCU\\Software\\Classes\\SystemFileAssociations\\.pdf\\shell\\XRAR.PdfReader /f",
+        "reg delete HKCU\\Software\\Classes\\XRAR.PdfDocument /f",
         "reg delete HKCU\\Software\\Classes\\*\\shell\\XRAR /f",
         "reg delete HKCU\\Software\\Classes\\Directory\\shell\\XRAR /f",
         "reg delete HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\XRAR /f",
@@ -345,6 +354,7 @@ fn run_interactive_setup() -> ExitCode {
     println!();
     println!("  Installation Options:");
     println!("  [✓] Register .xrar file format association");
+    println!("  [✓] Integrate XRAR PDF Reader with Windows Explorer (.pdf)");
     println!("  [✓] Integrate with Windows Explorer context menu");
     println!("  [✓] Create Desktop shortcut");
     println!("  [✓] Create Start Menu shortcut");

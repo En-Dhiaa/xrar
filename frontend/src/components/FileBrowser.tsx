@@ -38,6 +38,7 @@ interface FileBrowserProps {
   archiveCurrentFolder: string;
   onNavigateArchiveFolder: (folder: string) => void;
   onCloseArchive: () => void;
+  onOpenPdfFile?: (path: string) => void;
   // Shared actions
   onPreview: (item: ArchiveItem | FsItem) => void;
   onExtractItem?: (item: ArchiveItem) => void;
@@ -60,6 +61,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
   archiveCurrentFolder,
   onNavigateArchiveFolder,
   onCloseArchive,
+  onOpenPdfFile,
   onPreview,
   onExtractItem,
   onDeleteItem,
@@ -389,6 +391,8 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
                         onNavigateFsDir(item.path);
                       } else if (isArch) {
                         onOpenArchiveFile(item.path);
+                      } else if (item.name.toLowerCase().endsWith('.pdf') && onOpenPdfFile) {
+                        onOpenPdfFile(item.path);
                       } else {
                         onPreview(item);
                       }
@@ -633,6 +637,18 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
 
           {contextMenu.fsItem && (
             <>
+              {contextMenu.fsItem.name.toLowerCase().endsWith('.pdf') && onOpenPdfFile && (
+                <button
+                  onClick={() => {
+                    onOpenPdfFile(contextMenu.fsItem!.path);
+                    closeContextMenu();
+                  }}
+                  className="w-full text-start px-3 py-1.5 hover:bg-rose-600/30 hover:text-white flex items-center gap-2"
+                >
+                  <FileText className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Open in XRAR PDF Reader</span>
+                </button>
+              )}
               {isArchiveFile(contextMenu.fsItem.name) ? (
                 <button
                   onClick={() => {
