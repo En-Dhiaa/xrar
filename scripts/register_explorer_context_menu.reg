@@ -1,0 +1,70 @@
+Windows Registry Editor Version 5.00
+
+; ==============================================================================
+; XRAR — Extreme Compression Archive: Windows Explorer Context Menu Integration
+; ==============================================================================
+
+; --- Context Menu for Files and Folders (Compress Options) ---
+[HKEY_CLASSES_ROOT\*\shell\XRAR]
+"MUIVerb"="XRAR"
+"SubCommands"=""
+"Icon"="\"C:\\Program Files\\XRAR\\xrar.exe\",0"
+
+[HKEY_CLASSES_ROOT\*\shell\XRAR\shell\AddToArchive]
+"MUIVerb"="Add to archive..."
+"Icon"="\"C:\\Program Files\\XRAR\\xrar.exe\",0"
+
+[HKEY_CLASSES_ROOT\*\shell\XRAR\shell\AddToArchive\command]
+@="\"C:\\Program Files\\XRAR\\xrar.exe\" create \"%1.xrar\" \"%1\""
+
+[HKEY_CLASSES_ROOT\*\shell\XRAR\shell\AddToXrar]
+"MUIVerb"="Add to .xrar (Smart Extreme)"
+"Icon"="\"C:\\Program Files\\XRAR\\xrar.exe\",0"
+
+[HKEY_CLASSES_ROOT\*\shell\XRAR\shell\AddToXrar\command]
+@="\"C:\\Program Files\\XRAR\\xrar.exe\" create \"%1.xrar\" \"%1\" --profile smart"
+
+; --- Directory Background Context Menu ---
+[HKEY_CLASSES_ROOT\Directory\shell\XRAR]
+"MUIVerb"="XRAR"
+"SubCommands"=""
+"Icon"="\"C:\\Program Files\\XRAR\\xrar.exe\",0"
+
+[HKEY_CLASSES_ROOT\Directory\shell\XRAR\shell\CompressFolder]
+"MUIVerb"="Compress with XRAR"
+"Icon"="\"C:\\Program Files\\XRAR\\xrar.exe\",0"
+
+[HKEY_CLASSES_ROOT\Directory\shell\XRAR\shell\CompressFolder\command]
+@="\"C:\\Program Files\\XRAR\\xrar.exe\" create \"%1.xrar\" \"%1\" --solid"
+
+; --- Archive File Extraction Integration (.xrar, .zip, .rar, .7z) ---
+[HKEY_CLASSES_ROOT\.xrar]
+@="XRAR.Archive"
+
+[HKEY_CLASSES_ROOT\XRAR.Archive]
+@="XRAR Archive"
+"Icon"="\"C:\\Program Files\\XRAR\\xrar.exe\",0"
+
+[HKEY_CLASSES_ROOT\XRAR.Archive\shell\open]
+@="Open with XRAR"
+
+[HKEY_CLASSES_ROOT\XRAR.Archive\shell\open\command]
+@="\"C:\\Program Files\\XRAR\\xrar.exe\" list \"%1\""
+
+[HKEY_CLASSES_ROOT\XRAR.Archive\shell\ExtractHere]
+"MUIVerb"="Extract here"
+
+[HKEY_CLASSES_ROOT\XRAR.Archive\shell\ExtractHere\command]
+@="\"C:\\Program Files\\XRAR\\xrar.exe\" extract \"%1\" -o ."
+
+[HKEY_CLASSES_ROOT\XRAR.Archive\shell\ExtractToFolder]
+"MUIVerb"="Extract to folder"
+
+[HKEY_CLASSES_ROOT\XRAR.Archive\shell\ExtractToFolder\command]
+@="\"C:\\Program Files\\XRAR\\xrar.exe\" extract \"%1\" -o \"%1_extracted\""
+
+[HKEY_CLASSES_ROOT\XRAR.Archive\shell\TestArchive]
+"MUIVerb"="Test archive integrity"
+
+[HKEY_CLASSES_ROOT\XRAR.Archive\shell\TestArchive\command]
+@="\"C:\\Program Files\\XRAR\\xrar.exe\" test \"%1\""
