@@ -27,3 +27,4 @@ Thumbs.db
 *.log
 test_out/
 /tests/fixtures/temp/
+apps/installer/payload/*.exe

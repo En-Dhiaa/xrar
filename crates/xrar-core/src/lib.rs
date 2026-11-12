@@ -12,7 +12,7 @@ pub use xrar_crypto::hash_blake3;
 pub use xrar_dedup::DedupIndex;
 pub use xrar_extractor::{ExtractorTask, OverwriteMode, ProgressUpdate};
 pub use xrar_filesystem::{normalize_archive_path, resolve_safe_extraction_path, scan_paths, ScannedFile};
-pub use xrar_format::ArchiveManifest;
+pub use xrar_format::{ArchiveManifest, XrarReader, XRAR_MAGIC};
 
 use std::collections::HashMap;
 use std::fs::File;

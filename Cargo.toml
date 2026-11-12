@@ -1,6 +1,8 @@
 [workspace]
 members = [
     "apps/cli",
+    "apps/sfx-stub",
+    "apps/installer",
     "crates/xrar-core",
     "crates/xrar-format",
     "crates/xrar-compression",

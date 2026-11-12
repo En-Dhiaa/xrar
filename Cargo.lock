@@ -1143,6 +1143,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "xrar-installer"
+version = "1.0.0"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "xrar-plugin-api"
 version = "1.0.0"
 dependencies = [
@@ -1156,6 +1163,15 @@ version = "1.0.0"
 dependencies = [
  "reed-solomon-erasure",
  "thiserror",
+]
+
+[[package]]
+name = "xrar-sfx-stub"
+version = "1.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "xrar-core",
 ]
 
 [[package]]
