@@ -1,0 +1,16 @@
+[package]
+name = "xrar"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "xrar"
+path = "src/main.rs"
+
+[dependencies]
+xrar-core = { path = "../../crates/xrar-core" }
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
