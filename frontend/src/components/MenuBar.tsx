@@ -289,3 +289,4 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     </div>
   );
 };
+

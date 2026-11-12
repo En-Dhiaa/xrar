@@ -14,3 +14,8 @@ path = "src/main.rs"
 xrar-core = { path = "../../crates/xrar-core" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+tauri = "2.0"
+rfd = "0.18"
+
+[build-dependencies]
+tauri-build = "2.0"

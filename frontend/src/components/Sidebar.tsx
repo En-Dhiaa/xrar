@@ -5,10 +5,9 @@ import {
   Clock,
   Star,
   Wrench,
-  ShieldCheck,
-  Cpu,
   HardDrive,
   FileArchive,
+  Folder,
 } from 'lucide-react';
 import { en } from '../locales/en';
 import { ar } from '../locales/ar';
@@ -20,6 +19,9 @@ interface SidebarProps {
   onSelectTab: (tab: string) => void;
   recentArchives: string[];
   onOpenArchive: (name: string) => void;
+  drives: string[];
+  onSelectDrive: (drive: string) => void;
+  currentDirPath: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -28,6 +30,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   recentArchives,
   onOpenArchive,
+  drives,
+  onSelectDrive,
+  currentDirPath,
 }) => {
   const t = lang === 'ar' ? ar : en;
 
@@ -40,7 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-60 border-e border-slate-800 bg-slate-900/50 flex flex-col justify-between p-3 select-none">
+    <aside className="w-56 border-e border-slate-800 bg-slate-900/60 flex flex-col justify-between p-3 select-none">
       <div className="space-y-4">
         {/* Navigation Section */}
         <div className="space-y-1">
@@ -64,19 +69,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </div>
 
-        {/* Quick Volumes / Drives */}
+        {/* Real Windows Volumes / Drives */}
         <div className="pt-2 border-t border-slate-800/80">
           <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-            {lang === 'ar' ? 'وحدات التخزين' : 'Drives & Locations'}
+            {lang === 'ar' ? 'الأقراص ووحدات التخزين' : 'Drives & Volumes'}
           </p>
-          <div className="space-y-0.5">
-            <button className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800/40">
-              <HardDrive className="w-3.5 h-3.5 text-slate-400" />
-              <span>Local Disk (C:)</span>
-            </button>
-            <button className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800/40">
-              <HardDrive className="w-3.5 h-3.5 text-slate-400" />
-              <span>Data Volume (D:)</span>
+          <div className="space-y-1">
+            {drives.map((drive) => {
+              const isDriveActive = currentDirPath.toUpperCase().startsWith(drive.toUpperCase());
+              return (
+                <button
+                  key={drive}
+                  onClick={() => onSelectDrive(drive)}
+                  className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition ${
+                    isDriveActive
+                      ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30'
+                      : 'text-slate-300 hover:bg-slate-800/50 hover:text-white'
+                  }`}
+                  title={drive}
+                >
+                  <HardDrive className={`w-3.5 h-3.5 ${isDriveActive ? 'text-cyan-400' : 'text-slate-400'}`} />
+                  <span className="font-mono">Local Disk ({drive.replace('\\', '')})</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Quick User Folders */}
+        <div className="pt-2 border-t border-slate-800/80">
+          <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+            {lang === 'ar' ? 'المجلدات السريعة' : 'Quick Folders'}
+          </p>
+          <div className="space-y-1">
+            <button
+              onClick={() => onSelectDrive('C:\\Users')}
+              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800/50 text-start"
+            >
+              <Folder className="w-3.5 h-3.5 text-amber-400" />
+              <span>Users</span>
             </button>
           </div>
         </div>
@@ -96,7 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   title={name}
                 >
                   <FileArchive className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span className="truncate">{name}</span>
+                  <span className="truncate">{name.split('\\').pop() || name}</span>
                 </button>
               ))}
             </div>
@@ -104,16 +135,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
-      {/* Engine & Offline Badges */}
-      <div className="space-y-2 pt-3 border-t border-slate-800">
-        <div className="flex items-center gap-2 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium">
-          <Cpu className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">{t.sidebar.smartEngine}</span>
+      {/* Engine Status Tag */}
+      <div className="pt-3 border-t border-slate-800/80 space-y-1.5">
+        <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-400">
+          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="font-semibold">{t.sidebar.smartEngine}</span>
         </div>
-        <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-800/40 border border-slate-700/40 text-slate-400 text-[11px] font-medium">
-          <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
-          <span className="truncate">{t.sidebar.offlineMode}</span>
-        </div>
+        <p className="text-[10px] text-slate-500 text-center">
+          {t.sidebar.offlineMode}
+        </p>
       </div>
     </aside>
   );

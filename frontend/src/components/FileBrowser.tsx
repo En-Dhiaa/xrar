@@ -14,32 +14,52 @@ import {
   Check,
   RefreshCw,
   Trash2,
-  Copy,
-  Info,
+  HardDrive,
+  ArrowLeft,
+  Lock,
 } from 'lucide-react';
 import { en } from '../locales/en';
 import { ar } from '../locales/ar';
-import { ArchiveItem, Language } from '../types';
+import { ArchiveItem, FsItem, Language } from '../types';
 
 interface FileBrowserProps {
   lang: Language;
-  items: ArchiveItem[];
-  archiveName: string | null;
-  currentFolder: string;
-  onNavigateFolder: (folder: string) => void;
-  onPreview: (item: ArchiveItem) => void;
-  onExtractItem: (item: ArchiveItem) => void;
-  onDeleteItem: (path: string) => void;
+  mode: 'file_manager' | 'archive_manager';
+  // File Manager Mode
+  currentDirPath: string;
+  drives: string[];
+  fsItems: FsItem[];
+  onNavigateFsDir: (dir: string) => void;
+  onOpenArchiveFile: (path: string) => void;
+  onRefreshFs: () => void;
+  // Archive Manager Mode
+  archivePath: string | null;
+  archiveItems: ArchiveItem[];
+  archiveCurrentFolder: string;
+  onNavigateArchiveFolder: (folder: string) => void;
+  onCloseArchive: () => void;
+  // Shared actions
+  onPreview: (item: ArchiveItem | FsItem) => void;
+  onExtractItem?: (item: ArchiveItem) => void;
+  onDeleteItem?: (path: string) => void;
   selectedPaths: string[];
   onToggleSelect: (path: string) => void;
 }
 
 export const FileBrowser: React.FC<FileBrowserProps> = ({
   lang,
-  items,
-  archiveName,
-  currentFolder,
-  onNavigateFolder,
+  mode,
+  currentDirPath,
+  drives,
+  fsItems,
+  onNavigateFsDir,
+  onOpenArchiveFile,
+  onRefreshFs,
+  archivePath,
+  archiveItems,
+  archiveCurrentFolder,
+  onNavigateArchiveFolder,
+  onCloseArchive,
   onPreview,
   onExtractItem,
   onDeleteItem,
@@ -48,7 +68,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
 }) => {
   const t = lang === 'ar' ? ar : en;
   const [search, setSearch] = useState('');
-  const [sortField, setSortField] = useState<'path' | 'uncompressed_size' | 'compression_ratio'>('path');
+  const [sortField, setSortField] = useState<'name' | 'size' | 'modified'>('name');
   const [sortAsc, setSortAsc] = useState(true);
 
   // Context Menu State
@@ -56,16 +76,24 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
     visible: boolean;
     x: number;
     y: number;
-    item: ArchiveItem | null;
-  }>({ visible: false, x: 0, y: 0, item: null });
+    archiveItem?: ArchiveItem;
+    fsItem?: FsItem;
+  }>({ visible: false, x: 0, y: 0 });
 
-  const getFileIcon = (path: string, isDir: boolean) => {
+  const isArchiveFile = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase() || '';
+    return ['xrar', 'zip', 'rar', '7z', 'tar', 'iso', 'gz', 'bz2'].includes(ext);
+  };
+
+  const getFileIcon = (filename: string, isDir: boolean) => {
     if (isDir) return <Folder className="w-4 h-4 text-amber-400 shrink-0" />;
-    const ext = path.split('.').pop()?.toLowerCase();
+    const ext = filename.split('.').pop()?.toLowerCase();
     switch (ext) {
       case 'rs':
       case 'ts':
+      case 'tsx':
       case 'js':
+      case 'jsx':
       case 'py':
       case 'json':
       case 'html':
@@ -76,16 +104,19 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
       case 'jpeg':
       case 'svg':
       case 'webp':
+      case 'ico':
         return <FileImage className="w-4 h-4 text-pink-400 shrink-0" />;
       case 'xrar':
       case 'zip':
       case 'rar':
       case '7z':
       case 'tar':
+      case 'iso':
         return <FileArchive className="w-4 h-4 text-emerald-400 shrink-0" />;
       case 'txt':
       case 'md':
       case 'log':
+      case 'pdf':
         return <FileText className="w-4 h-4 text-blue-400 shrink-0" />;
       default:
         return <File className="w-4 h-4 text-slate-400 shrink-0" />;
@@ -100,55 +131,53 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
     return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
   };
 
-  const handleUpLevel = () => {
-    if (!currentFolder) return;
-    const parts = currentFolder.split('/').filter(Boolean);
-    parts.pop();
-    onNavigateFolder(parts.join('/'));
+  const formatDate = (timestampSecs: number) => {
+    if (!timestampSecs) return '-';
+    const date = new Date(timestampSecs * 1000);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const handleContextMenu = (e: React.MouseEvent, item: ArchiveItem) => {
+  const handleUpLevelFs = () => {
+    const trimmed = currentDirPath.replace(/[\\/]+$/, '');
+    const parts = trimmed.split(/[\\/]/);
+    if (parts.length > 1) {
+      parts.pop();
+      let parent = parts.join('\\');
+      if (parts.length === 1 && parts[0].endsWith(':')) {
+        parent += '\\';
+      }
+      onNavigateFsDir(parent);
+    }
+  };
+
+  const handleUpLevelArchive = () => {
+    if (!archiveCurrentFolder) {
+      onCloseArchive();
+      return;
+    }
+    const parts = archiveCurrentFolder.split('/').filter(Boolean);
+    parts.pop();
+    onNavigateArchiveFolder(parts.join('/'));
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, item: { archiveItem?: ArchiveItem; fsItem?: FsItem }) => {
     e.preventDefault();
     setContextMenu({
       visible: true,
       x: e.clientX,
       y: e.clientY,
-      item,
+      archiveItem: item.archiveItem,
+      fsItem: item.fsItem,
     });
   };
 
   const closeContextMenu = () => {
     if (contextMenu.visible) {
-      setContextMenu({ visible: false, x: 0, y: 0, item: null });
+      setContextMenu({ visible: false, x: 0, y: 0 });
     }
   };
 
-  const filteredItems = items
-    .filter((item) => {
-      if (search) {
-        return item.path.toLowerCase().includes(search.toLowerCase());
-      }
-      if (currentFolder) {
-        return item.path.startsWith(currentFolder + '/') || item.path === currentFolder;
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      if (a.is_dir && !b.is_dir) return -1;
-      if (!a.is_dir && b.is_dir) return 1;
-
-      let res = 0;
-      if (sortField === 'path') {
-        res = a.path.localeCompare(b.path);
-      } else if (sortField === 'uncompressed_size') {
-        res = a.uncompressed_size - b.uncompressed_size;
-      } else if (sortField === 'compression_ratio') {
-        res = a.compression_ratio - b.compression_ratio;
-      }
-      return sortAsc ? res : -res;
-    });
-
-  const toggleSort = (field: 'path' | 'uncompressed_size' | 'compression_ratio') => {
+  const toggleSort = (field: 'name' | 'size' | 'modified') => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
     } else {
@@ -157,41 +186,127 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
     }
   };
 
+  // Filter and sort items based on active mode
+  const filteredFsItems = fsItems
+    .filter((item) => {
+      if (search) return item.name.toLowerCase().includes(search.toLowerCase());
+      return true;
+    })
+    .sort((a, b) => {
+      if (a.is_dir && !b.is_dir) return -1;
+      if (!a.is_dir && b.is_dir) return 1;
+      let res = 0;
+      if (sortField === 'name') res = a.name.localeCompare(b.name);
+      else if (sortField === 'size') res = a.size - b.size;
+      else if (sortField === 'modified') res = a.modified_timestamp - b.modified_timestamp;
+      return sortAsc ? res : -res;
+    });
+
+  const filteredArchiveItems = archiveItems
+    .filter((item) => {
+      if (search) return item.path.toLowerCase().includes(search.toLowerCase());
+      if (archiveCurrentFolder) {
+        return item.path.startsWith(archiveCurrentFolder + '/') || item.path === archiveCurrentFolder;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (a.is_dir && !b.is_dir) return -1;
+      if (!a.is_dir && b.is_dir) return 1;
+      let res = 0;
+      if (sortField === 'name') res = a.path.localeCompare(b.path);
+      else if (sortField === 'size') res = a.uncompressed_size - b.uncompressed_size;
+      else if (sortField === 'modified') res = a.modified_timestamp - b.modified_timestamp;
+      return sortAsc ? res : -res;
+    });
+
   return (
     <div
       onClick={closeContextMenu}
       className="flex-1 flex flex-col bg-slate-950 overflow-hidden select-none relative"
     >
-      {/* WinRAR Address / Path Bar */}
+      {/* Top Address & Path Bar */}
       <div className="h-10 border-b border-slate-800 px-3 flex items-center justify-between gap-3 bg-slate-900/40">
         <div className="flex items-center gap-1.5 flex-1 overflow-hidden">
-          {/* Up folder button */}
-          <button
-            onClick={handleUpLevel}
-            disabled={!currentFolder}
-            className={`p-1 rounded-md border transition ${
-              currentFolder
-                ? 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border-slate-700'
-                : 'text-slate-600 border-transparent cursor-not-allowed opacity-40'
-            }`}
-            title={t.addressBar.up}
-          >
-            <CornerLeftUp className="w-4 h-4" />
-          </button>
+          {mode === 'archive_manager' ? (
+            <>
+              {/* Back to File Manager Button */}
+              <button
+                onClick={onCloseArchive}
+                className="flex items-center gap-1 px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-xs font-semibold transition"
+                title="Back to File Explorer / العودة لمتصفح الملفات"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Files</span>
+              </button>
 
-          {/* Current Path Bar */}
-          <div className="flex-1 flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-300 overflow-hidden">
-            <span className="text-slate-500">{t.addressBar.computer} &gt;</span>
-            <span className="font-semibold text-emerald-400 truncate">
-              {archiveName || 'No Archive'}
-            </span>
-            {currentFolder && (
-              <>
-                <span className="text-slate-500">&gt;</span>
-                <span className="text-cyan-300 font-semibold">{currentFolder}</span>
-              </>
-            )}
-          </div>
+              {/* Up folder inside archive */}
+              <button
+                onClick={handleUpLevelArchive}
+                className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition"
+                title={t.addressBar.up}
+              >
+                <CornerLeftUp className="w-4 h-4" />
+              </button>
+
+              {/* Archive Breadcrumb */}
+              <div className="flex-1 flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-300 overflow-hidden">
+                <FileArchive className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="font-bold text-emerald-400 truncate">
+                  {archivePath?.split(/[\\/]/).pop() || 'Archive'}
+                </span>
+                {archiveCurrentFolder && (
+                  <>
+                    <span className="text-slate-500">&gt;</span>
+                    <span className="text-cyan-300 font-semibold">{archiveCurrentFolder}</span>
+                  </>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Up Directory Button in File Manager */}
+              <button
+                onClick={handleUpLevelFs}
+                className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition"
+                title={t.addressBar.up}
+              >
+                <CornerLeftUp className="w-4 h-4" />
+              </button>
+
+              {/* Drive Picker Selector */}
+              <div className="flex items-center gap-1">
+                {drives.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => onNavigateFsDir(d)}
+                    className={`px-2 py-1 rounded text-xs font-mono font-bold transition ${
+                      currentDirPath.toUpperCase().startsWith(d.toUpperCase())
+                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                    }`}
+                  >
+                    {d.replace('\\', '')}
+                  </button>
+                ))}
+              </div>
+
+              {/* Current Path Bar */}
+              <div className="flex-1 flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-300 overflow-hidden">
+                <HardDrive className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span className="truncate">{currentDirPath}</span>
+              </div>
+
+              {/* Refresh button */}
+              <button
+                onClick={onRefreshFs}
+                className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+                title={t.addressBar.refresh}
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Search Input */}
@@ -201,22 +316,15 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t.browser.searchPlaceholder}
+            placeholder={mode === 'archive_manager' ? t.browser.searchPlaceholder : 'Search directory...'}
             className="w-full bg-slate-900/90 border border-slate-800 rounded-lg text-xs ps-8 pe-3 py-1 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
           />
         </div>
       </div>
 
       {/* Main Files Table */}
-      {items.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none">
-          <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600 mb-4">
-            <FileArchive className="w-8 h-8 text-emerald-500/40" />
-          </div>
-          <h3 className="text-sm font-bold text-slate-300">{t.browser.emptyTitle}</h3>
-          <p className="text-xs text-slate-500 max-w-sm mt-1">{t.browser.emptySubtitle}</p>
-        </div>
-      ) : (
+      {mode === 'file_manager' ? (
+        // ==================== MODE 1: FILE MANAGER (EXPLORER MODE) ====================
         <div className="flex-1 overflow-auto">
           <table className="w-full text-start text-xs border-collapse">
             <thead className="sticky top-0 bg-slate-900/95 backdrop-blur border-b border-slate-800 text-[11px] font-semibold text-slate-400 select-none z-10">
@@ -225,7 +333,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
                   <span className="sr-only">Select</span>
                 </th>
                 <th
-                  onClick={() => toggleSort('path')}
+                  onClick={() => toggleSort('name')}
                   className="px-3 py-2 text-start cursor-pointer hover:text-slate-200"
                 >
                   <div className="flex items-center gap-1.5">
@@ -234,7 +342,122 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
                   </div>
                 </th>
                 <th
-                  onClick={() => toggleSort('uncompressed_size')}
+                  onClick={() => toggleSort('size')}
+                  className="w-28 px-3 py-2 text-end cursor-pointer hover:text-slate-200"
+                >
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>{t.browser.size}</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                  </div>
+                </th>
+                <th className="w-28 px-3 py-2 text-center">{t.browser.type}</th>
+                <th
+                  onClick={() => toggleSort('modified')}
+                  className="w-40 px-3 py-2 text-end cursor-pointer hover:text-slate-200"
+                >
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>{t.browser.modified}</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/40">
+              {/* Up Row (..) */}
+              <tr
+                onDoubleClick={handleUpLevelFs}
+                className="hover:bg-slate-800/40 cursor-pointer text-slate-400"
+              >
+                <td className="px-3 py-1.5 text-center">
+                  <CornerLeftUp className="w-3.5 h-3.5 mx-auto text-cyan-400" />
+                </td>
+                <td colSpan={4} className="px-3 py-1.5 font-bold font-mono text-cyan-300">
+                  ..
+                </td>
+              </tr>
+
+              {filteredFsItems.map((item, idx) => {
+                const isSelected = selectedPaths.includes(item.path);
+                const isArch = isArchiveFile(item.name);
+
+                return (
+                  <tr
+                    key={idx}
+                    onClick={() => onToggleSelect(item.path)}
+                    onDoubleClick={() => {
+                      if (item.is_dir) {
+                        onNavigateFsDir(item.path);
+                      } else if (isArch) {
+                        onOpenArchiveFile(item.path);
+                      } else {
+                        onPreview(item);
+                      }
+                    }}
+                    onContextMenu={(e) => handleContextMenu(e, { fsItem: item })}
+                    className={`group hover:bg-slate-800/40 transition cursor-pointer ${
+                      isSelected ? 'bg-cyan-500/10' : ''
+                    }`}
+                  >
+                    <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                      <div
+                        onClick={() => onToggleSelect(item.path)}
+                        className={`w-4 h-4 rounded border flex items-center justify-center transition ${
+                          isSelected
+                            ? 'bg-cyan-500 border-cyan-400 text-slate-950'
+                            : 'border-slate-700 bg-slate-900 group-hover:border-slate-500'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        {getFileIcon(item.name, item.is_dir)}
+                        <span className={`font-medium truncate max-w-md ${isArch ? 'text-emerald-400 font-bold' : 'text-slate-200'}`}>
+                          {item.name}
+                        </span>
+                        {isArch && (
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            Archive
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-end font-mono text-slate-400">
+                      {item.is_dir ? '<DIR>' : formatBytes(item.size)}
+                    </td>
+                    <td className="px-3 py-2 text-center text-slate-500 uppercase">
+                      {item.is_dir ? 'Folder' : item.name.split('.').pop() || 'File'}
+                    </td>
+                    <td className="px-3 py-2 text-end font-mono text-slate-500">
+                      {formatDate(item.modified_timestamp)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        // ==================== MODE 2: ARCHIVE MANAGER (WINRAR MODE) ====================
+        <div className="flex-1 overflow-auto">
+          <table className="w-full text-start text-xs border-collapse">
+            <thead className="sticky top-0 bg-slate-900/95 backdrop-blur border-b border-slate-800 text-[11px] font-semibold text-slate-400 select-none z-10">
+              <tr>
+                <th className="w-10 px-3 py-2 text-center">
+                  <span className="sr-only">Select</span>
+                </th>
+                <th
+                  onClick={() => toggleSort('name')}
+                  className="px-3 py-2 text-start cursor-pointer hover:text-slate-200"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>{t.browser.name}</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
+                  </div>
+                </th>
+                <th
+                  onClick={() => toggleSort('size')}
                   className="w-24 px-3 py-2 text-end cursor-pointer hover:text-slate-200"
                 >
                   <div className="flex items-center justify-end gap-1.5">
@@ -243,24 +466,16 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
                   </div>
                 </th>
                 <th className="w-24 px-3 py-2 text-end">{t.browser.packed}</th>
-                <th
-                  onClick={() => toggleSort('compression_ratio')}
-                  className="w-28 px-3 py-2 text-center cursor-pointer hover:text-slate-200"
-                >
-                  <div className="flex items-center justify-center gap-1.5">
-                    <span>{t.browser.ratio}</span>
-                    <ArrowUpDown className="w-3 h-3 text-slate-500" />
-                  </div>
-                </th>
-                <th className="w-24 px-3 py-2 text-center">{t.browser.checksum}</th>
+                <th className="w-28 px-3 py-2 text-center">{t.browser.ratio}</th>
+                <th className="w-28 px-3 py-2 text-center">{t.browser.checksum}</th>
                 <th className="w-20 px-3 py-2 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/40">
               {/* Parent Directory (..) Row if inside subfolder */}
-              {currentFolder && (
+              {archiveCurrentFolder && (
                 <tr
-                  onDoubleClick={handleUpLevel}
+                  onDoubleClick={handleUpLevelArchive}
                   className="hover:bg-slate-800/40 cursor-pointer text-slate-400"
                 >
                   <td className="px-3 py-1.5 text-center">
@@ -272,10 +487,10 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
                 </tr>
               )}
 
-              {filteredItems.map((item, idx) => {
+              {filteredArchiveItems.map((item, idx) => {
                 const isSelected = selectedPaths.includes(item.path);
-                const displayName = currentFolder
-                  ? item.path.replace(currentFolder + '/', '')
+                const displayName = archiveCurrentFolder
+                  ? item.path.replace(archiveCurrentFolder + '/', '')
                   : item.path;
 
                 return (
@@ -284,12 +499,12 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
                     onClick={() => onToggleSelect(item.path)}
                     onDoubleClick={() => {
                       if (item.is_dir) {
-                        onNavigateFolder(item.path);
+                        onNavigateArchiveFolder(item.path);
                       } else {
                         onPreview(item);
                       }
                     }}
-                    onContextMenu={(e) => handleContextMenu(e, item)}
+                    onContextMenu={(e) => handleContextMenu(e, { archiveItem: item })}
                     className={`group hover:bg-slate-800/40 transition cursor-pointer ${
                       isSelected ? 'bg-cyan-500/10' : ''
                     }`}
@@ -326,7 +541,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
                           <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
                             <div
                               className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full"
-                              style={{ width: `${item.compression_ratio}%` }}
+                              style={{ width: `${Math.min(100, item.compression_ratio)}%` }}
                             />
                           </div>
                           <span className="text-[11px] font-mono text-slate-400 w-9 text-end">
@@ -349,13 +564,15 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        <button
-                          onClick={() => onExtractItem(item)}
-                          className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white"
-                          title={t.toolbar.extract}
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                        </button>
+                        {onExtractItem && (
+                          <button
+                            onClick={() => onExtractItem(item)}
+                            className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white"
+                            title={t.toolbar.extract}
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -367,55 +584,80 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
       )}
 
       {/* WinRAR Right-Click Context Menu */}
-      {contextMenu.visible && contextMenu.item && (
+      {contextMenu.visible && (
         <div
           style={{ top: contextMenu.y, left: contextMenu.x }}
           className="fixed z-50 w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 text-xs text-slate-200"
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            onClick={() => {
-              onExtractItem(contextMenu.item!);
-              closeContextMenu();
-            }}
-            className="w-full text-start px-3 py-1.5 hover:bg-blue-600/30 hover:text-white flex items-center gap-2"
-          >
-            <Download className="w-3.5 h-3.5 text-blue-400" />
-            <span>{t.toolbar.extract}</span>
-          </button>
-          {!contextMenu.item.is_dir && (
-            <button
-              onClick={() => {
-                onPreview(contextMenu.item!);
-                closeContextMenu();
-              }}
-              className="w-full text-start px-3 py-1.5 hover:bg-amber-600/30 hover:text-white flex items-center gap-2"
-            >
-              <Eye className="w-3.5 h-3.5 text-amber-400" />
-              <span>{t.browser.preview}</span>
-            </button>
+          {contextMenu.archiveItem && (
+            <>
+              {onExtractItem && (
+                <button
+                  onClick={() => {
+                    onExtractItem(contextMenu.archiveItem!);
+                    closeContextMenu();
+                  }}
+                  className="w-full text-start px-3 py-1.5 hover:bg-cyan-600/30 hover:text-white flex items-center gap-2"
+                >
+                  <Download className="w-3.5 h-3.5 text-blue-400" />
+                  <span>{t.browser.extractSelected}</span>
+                </button>
+              )}
+              {!contextMenu.archiveItem.is_dir && (
+                <button
+                  onClick={() => {
+                    onPreview(contextMenu.archiveItem!);
+                    closeContextMenu();
+                  }}
+                  className="w-full text-start px-3 py-1.5 hover:bg-cyan-600/30 hover:text-white flex items-center gap-2"
+                >
+                  <Eye className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{t.browser.preview}</span>
+                </button>
+              )}
+              {onDeleteItem && (
+                <button
+                  onClick={() => {
+                    onDeleteItem(contextMenu.archiveItem!.path);
+                    closeContextMenu();
+                  }}
+                  className="w-full text-start px-3 py-1.5 hover:bg-rose-600/30 hover:text-rose-300 flex items-center gap-2"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>{t.browser.delete}</span>
+                </button>
+              )}
+            </>
           )}
-          <button
-            onClick={() => {
-              navigator.clipboard?.writeText(contextMenu.item!.checksum);
-              closeContextMenu();
-            }}
-            className="w-full text-start px-3 py-1.5 hover:bg-slate-800 flex items-center gap-2"
-          >
-            <Copy className="w-3.5 h-3.5 text-slate-400" />
-            <span>Copy Checksum</span>
-          </button>
-          <div className="h-px bg-slate-800 my-1" />
-          <button
-            onClick={() => {
-              onDeleteItem(contextMenu.item!.path);
-              closeContextMenu();
-            }}
-            className="w-full text-start px-3 py-1.5 hover:bg-rose-600/30 text-rose-400 hover:text-rose-300 flex items-center gap-2"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>{t.browser.delete}</span>
-          </button>
+
+          {contextMenu.fsItem && (
+            <>
+              {isArchiveFile(contextMenu.fsItem.name) ? (
+                <button
+                  onClick={() => {
+                    onOpenArchiveFile(contextMenu.fsItem!.path);
+                    closeContextMenu();
+                  }}
+                  className="w-full text-start px-3 py-1.5 hover:bg-emerald-600/30 hover:text-white flex items-center gap-2"
+                >
+                  <FileArchive className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Open in XRAR</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    onPreview(contextMenu.fsItem!);
+                    closeContextMenu();
+                  }}
+                  className="w-full text-start px-3 py-1.5 hover:bg-cyan-600/30 hover:text-white flex items-center gap-2"
+                >
+                  <Eye className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Preview File</span>
+                </button>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

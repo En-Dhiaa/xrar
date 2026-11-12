@@ -42,8 +42,8 @@ New-Item -ItemType Directory -Path $TempPortable | Out-Null
 Copy-Item $TargetCli -Destination "$TempPortable\xrar.exe"
 Copy-Item $TargetGui -Destination "$TempPortable\xrar-gui.exe"
 Copy-Item $TargetSfx -Destination "$TempPortable\xrar-sfx.exe"
-Copy-Item "$PSScriptRoot\..\frontend\public\icon.ico" -Destination "$TempPortable\icon.ico"
-Copy-Item "$PSScriptRoot\..\frontend\public\icon.png" -Destination "$TempPortable\icon.png"
+Copy-Item "$PSScriptRoot\..\apps\desktop\assets\icon.ico" -Destination "$TempPortable\icon.ico"
+Copy-Item "$PSScriptRoot\..\apps\desktop\assets\icon.png" -Destination "$TempPortable\icon.png"
 Copy-Item "$PSScriptRoot\..\LICENSE" -Destination "$TempPortable\LICENSE.txt"
 Copy-Item "$PSScriptRoot\..\README.md" -Destination "$TempPortable\README.txt"
 Copy-Item "$PSScriptRoot\..\docs" -Destination "$TempPortable\docs" -Recurse

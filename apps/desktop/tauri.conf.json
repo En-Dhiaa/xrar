@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "XRAR",
+  "version": "1.0.0",
+  "identifier": "com.endhiaa.xrar",
+  "build": {
+    "frontendDist": "../../frontend/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "XRAR — Extreme Compression Archive",
+        "width": 1280,
+        "height": 820,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": [
+      "assets/icon.ico",
+      "assets/icon.png"
+    ]
+  }
+}
+

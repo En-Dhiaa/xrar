@@ -82,3 +82,4 @@ export const AboutModal: React.FC<AboutModalProps> = ({ lang, isOpen, onClose })
     </div>
   );
 };
+

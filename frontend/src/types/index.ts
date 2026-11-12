@@ -75,3 +75,17 @@ export interface DuplicateGroup {
   potential_savings: number;
   file_paths: string[];
 }
+
+export interface FsItem {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  size: number;
+  modified_timestamp: number;
+}
+
+export interface TestResult {
+  valid: boolean;
+  tested_files: number;
+  errors: string[];
+}

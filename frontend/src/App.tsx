@@ -15,12 +15,14 @@ import { BenchmarkModal } from './components/BenchmarkModal';
 import { DuplicateFinderModal } from './components/DuplicateFinderModal';
 import { FilePreviewModal } from './components/FilePreviewModal';
 import { SettingsModal } from './components/SettingsModal';
+import * as ipc from './api/ipc';
 import {
   ArchiveItem,
   ArchiveSummary,
   BenchmarkReport,
   DuplicateGroup,
   ExtractOptions,
+  FsItem,
   Language,
   ProgressState,
   Theme,
@@ -30,67 +32,25 @@ export const App: React.FC = () => {
   const [lang, setLang] = useState<Language>('en');
   const [theme, setTheme] = useState<Theme>('dark');
   const [activeTab, setActiveTab] = useState('home');
-  const [currentFolder, setCurrentFolder] = useState<string>('');
 
-  // Archive State
-  const [archiveName, setArchiveName] = useState<string | null>('Project_Backup.xrar');
+  // Operational Mode: File Manager (Explorer) vs Archive Manager (WinRAR)
+  const [mode, setMode] = useState<'file_manager' | 'archive_manager'>('file_manager');
+
+  // File Manager State
+  const [currentDirPath, setCurrentDirPath] = useState<string>('C:\\');
+  const [drives, setDrives] = useState<string[]>(['C:\\']);
+  const [fsItems, setFsItems] = useState<FsItem[]>([]);
+
+  // Archive Manager State
+  const [archivePath, setArchivePath] = useState<string | null>(null);
+  const [archiveSummary, setArchiveSummary] = useState<ArchiveSummary | null>(null);
+  const [archiveCurrentFolder, setArchiveCurrentFolder] = useState<string>('');
   const [archiveComment, setArchiveComment] = useState<string>(
-    'XRAR Native Extreme Compression Container\nRelease: v1.0.0 Production\nSecurity: AES-256-GCM + Argon2id Authenticated\nReed-Solomon Parity: 3% Self-healing'
+    'XRAR Native Extreme Compression Container\nAES-256-GCM + BLAKE3 Integrity\nReed-Solomon Self-Healing Parity'
   );
-  const [items, setItems] = useState<ArchiveItem[]>([
-    {
-      path: 'src/main.rs',
-      uncompressed_size: 14200,
-      compressed_size: 4320,
-      compression_ratio: 30.4,
-      is_dir: false,
-      modified_timestamp: 1731405000,
-      checksum: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-    },
-    {
-      path: 'src/core/engine.rs',
-      uncompressed_size: 28900,
-      compressed_size: 8120,
-      compression_ratio: 28.1,
-      is_dir: false,
-      modified_timestamp: 1731405200,
-      checksum: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb',
-    },
-    {
-      path: 'docs/SPECIFICATION.md',
-      uncompressed_size: 89000,
-      compressed_size: 22100,
-      compression_ratio: 24.8,
-      is_dir: false,
-      modified_timestamp: 1731405100,
-      checksum: '4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a',
-    },
-    {
-      path: 'assets/branding_logo.png',
-      uncompressed_size: 512000,
-      compressed_size: 508000,
-      compression_ratio: 99.2,
-      is_dir: false,
-      modified_timestamp: 1731404000,
-      checksum: 'ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d',
-    },
-    {
-      path: 'target/release/xrar.exe',
-      uncompressed_size: 4194304,
-      compressed_size: 1468000,
-      compression_ratio: 35.0,
-      is_dir: false,
-      modified_timestamp: 1731405300,
-      checksum: 'cd5b2067ae2c486e927503fae37ceca1032cf05d5c07c4b789a74075b341f237',
-    },
-  ]);
 
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
-  const [recentArchives, setRecentArchives] = useState<string[]>([
-    'Project_Backup.xrar',
-    'Financial_Reports_2026.xrar',
-    'Windows_Recovery_Image.iso',
-  ]);
+  const [recentArchives, setRecentArchives] = useState<string[]>([]);
 
   // Dialog Visibility States
   const [isCompressOpen, setIsCompressOpen] = useState(false);
@@ -138,6 +98,38 @@ export const App: React.FC = () => {
     document.documentElement.lang = lang;
   }, [lang]);
 
+  // Initial Load & IPC initialization
+  useEffect(() => {
+    async function init() {
+      try {
+        const driveList = await ipc.getDrives();
+        if (driveList.length > 0) {
+          setDrives(driveList);
+        }
+
+        // Check if application was launched with an archive file (e.g. CLI or double-click on .xrar)
+        const initialArchive = (window as any).__INITIAL_ARCHIVE__;
+        if (initialArchive && typeof initialArchive === 'string') {
+          await handleOpenArchive(initialArchive);
+          return;
+        }
+
+        // Default: Start in File Manager mode browsing current user folder
+        const items = await ipc.readDirectory();
+        setFsItems(items);
+        if (items.length > 0) {
+          // Infer base path from first item
+          const first = items[0].path;
+          const parent = first.substring(0, first.lastIndexOf('\\')) || 'C:\\';
+          setCurrentDirPath(parent);
+        }
+      } catch (err) {
+        console.error('Initialization error:', err);
+      }
+    }
+    init();
+  }, []);
+
   // Keyboard Shortcuts (Alt+A, Alt+E, Alt+T, Alt+V, Alt+I, Alt+R, Alt+M, Del)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -147,13 +139,13 @@ export const App: React.FC = () => {
           setIsCompressOpen(true);
         } else if (e.key === 'e' || e.key === 'E') {
           e.preventDefault();
-          if (archiveName) setIsExtractOpen(true);
+          if (archivePath) setIsExtractOpen(true);
         } else if (e.key === 't' || e.key === 'T') {
           e.preventDefault();
-          if (archiveName) handleTestArchive();
+          if (archivePath) handleTestArchive();
         } else if (e.key === 'i' || e.key === 'I') {
           e.preventDefault();
-          setIsInfoOpen(true);
+          if (archivePath) setIsInfoOpen(true);
         } else if (e.key === 'r' || e.key === 'R') {
           e.preventDefault();
           setIsRepairOpen(true);
@@ -169,21 +161,90 @@ export const App: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [archiveName, selectedPaths]);
+  }, [archivePath, selectedPaths]);
+
+  // Navigate to directory in File Manager
+  const handleNavigateFs = async (path: string) => {
+    try {
+      const items = await ipc.readDirectory(path);
+      setFsItems(items);
+      setCurrentDirPath(path);
+      setSelectedPaths([]);
+    } catch (err: any) {
+      alert(lang === 'ar' ? `تعذر فتح المجلد: ${err}` : `Failed to open directory: ${err}`);
+    }
+  };
+
+  const handleRefreshFs = async () => {
+    await handleNavigateFs(currentDirPath);
+  };
+
+  // Open archive into Archive Manager Mode
+  const handleOpenArchive = async (filePath: string) => {
+    try {
+      setProgressState({
+        active: true,
+        title: lang === 'ar' ? 'جار فتح الأرشيف...' : 'Opening Archive...',
+        current_file: filePath,
+        percentage: 30,
+        speed_mbs: 950,
+        cpu_pct: 20,
+        ram_mb: 60,
+        elapsed_secs: 0,
+        remaining_secs: 1,
+        original_bytes: 0,
+        compressed_bytes: 0,
+      });
+
+      const summary = await ipc.listArchive(filePath);
+      setArchivePath(filePath);
+      setArchiveSummary(summary);
+      setArchiveCurrentFolder('');
+      setMode('archive_manager');
+      setSelectedPaths([]);
+      setRecentArchives((prev) => Array.from(new Set([filePath, ...prev])).slice(0, 10));
+
+      setProgressState((p) => ({ ...p, active: false }));
+    } catch (err: any) {
+      setProgressState((p) => ({ ...p, active: false }));
+      alert(lang === 'ar' ? `فشل فتح الأرشيف: ${err}` : `Failed to open archive: ${err}`);
+    }
+  };
+
+  // Close archive and return to File Manager
+  const handleCloseArchive = () => {
+    setMode('file_manager');
+    setArchivePath(null);
+    setArchiveSummary(null);
+    setSelectedPaths([]);
+    handleRefreshFs();
+  };
+
+  // Browse and open an archive file via native dialog
+  const handleBrowseOpenArchive = async () => {
+    try {
+      const picked = await ipc.browseArchiveFile();
+      if (picked) {
+        await handleOpenArchive(picked);
+      }
+    } catch (err: any) {
+      alert(`Error picking archive: ${err}`);
+    }
+  };
 
   // Calculate Summary
-  const summary: ArchiveSummary = {
-    total_files: items.filter((i) => !i.is_dir).length,
-    total_folders: items.filter((i) => i.is_dir).length,
-    uncompressed_size: items.reduce((acc, i) => acc + i.uncompressed_size, 0),
-    compressed_size: items.reduce((acc, i) => acc + i.compressed_size, 0),
-    format: 'XRAR v1.0',
-    items,
+  const summary: ArchiveSummary = archiveSummary || {
+    total_files: fsItems.filter((i) => !i.is_dir).length,
+    total_folders: fsItems.filter((i) => i.is_dir).length,
+    uncompressed_size: fsItems.reduce((acc, i) => acc + i.size, 0),
+    compressed_size: 0,
+    format: 'Xrar',
+    items: [],
     comment: archiveComment,
     has_recovery_record: true,
     recovery_record_pct: 3,
     is_solid: true,
-    is_encrypted: true,
+    is_encrypted: false,
     encryption_algorithm: 'AES-256-GCM',
     dictionary_size_kb: 65536,
   };
@@ -195,7 +256,11 @@ export const App: React.FC = () => {
   };
 
   const handleSelectAll = () => {
-    setSelectedPaths(items.map((i) => i.path));
+    if (mode === 'archive_manager' && archiveSummary) {
+      setSelectedPaths(archiveSummary.items.map((i) => i.path));
+    } else {
+      setSelectedPaths(fsItems.map((i) => i.path));
+    }
   };
 
   const handleDeselectAll = () => {
@@ -206,242 +271,211 @@ export const App: React.FC = () => {
     if (selectedPaths.length === 0) return;
     const confirmMsg =
       lang === 'ar'
-        ? `هل تريد حذف ${selectedPaths.length} ملف محدد من الأرشيف؟`
-        : `Delete ${selectedPaths.length} selected items from archive?`;
+        ? `هل تريد حذف ${selectedPaths.length} عنصر محدد؟`
+        : `Delete ${selectedPaths.length} selected items?`;
     if (window.confirm(confirmMsg)) {
-      setItems((prev) => prev.filter((i) => !selectedPaths.includes(i.path)));
+      if (mode === 'archive_manager' && archiveSummary) {
+        const remaining = archiveSummary.items.filter((i) => !selectedPaths.includes(i.path));
+        setArchiveSummary({ ...archiveSummary, items: remaining });
+      } else {
+        setFsItems((prev) => prev.filter((i) => !selectedPaths.includes(i.path)));
+      }
       setSelectedPaths([]);
     }
   };
 
-  const handleDeleteItem = (path: string) => {
-    setItems((prev) => prev.filter((i) => i.path !== path));
-    setSelectedPaths((prev) => prev.filter((p) => p !== path));
-  };
-
   // Preview Action
-  const handlePreview = (item: ArchiveItem) => {
-    setPreviewItem(item);
-    if (item.path.endsWith('.rs')) {
-      setPreviewContent(
-        '// XRAR Native Extreme Compression Core\n// High-speed multi-threaded codec pipeline\n\npub struct CompressionPipeline {\n    pub block_size: usize,\n    pub profile: CompressionProfile,\n}\n\nimpl CompressionPipeline {\n    pub fn run_block(&self, data: &[u8]) -> Result<Vec<u8>, CoreError> {\n        // High-density streaming execution\n        Ok(vec![])\n    }\n}'
-      );
-    } else if (item.path.endsWith('.md')) {
-      setPreviewContent(
-        '# XRAR — Extreme Compression Archive\n\nOfficial Documentation\n\n- Zero-telemetry, offline-first\n- Multi-codec support: Zstandard, LZMA2, Brotli, LZ4\n- AES-256-GCM + Argon2id security\n- Reed-Solomon GF(2^8) self-healing'
-      );
-    } else {
-      setPreviewContent(`File: ${item.path}\nSize: ${item.uncompressed_size} bytes\nCRC32/BLAKE3: ${item.checksum}`);
+  const handlePreview = async (item: ArchiveItem | FsItem) => {
+    try {
+      const filePath = 'path' in item ? item.path : '';
+      const text = await ipc.readFilePreview(filePath, 32768);
+      setPreviewItem({
+        path: filePath,
+        uncompressed_size: 'uncompressed_size' in item ? item.uncompressed_size : ('size' in item ? item.size : 0),
+        compressed_size: 'compressed_size' in item ? item.compressed_size : 0,
+        compression_ratio: 'compression_ratio' in item ? item.compression_ratio : 100,
+        is_dir: item.is_dir,
+        modified_timestamp: item.modified_timestamp,
+        checksum: 'checksum' in item ? item.checksum : '',
+      });
+      setPreviewContent(text);
+      setIsPreviewOpen(true);
+    } catch (err: any) {
+      // Fallback preview
+      setPreviewItem({
+        path: item.path,
+        uncompressed_size: 'uncompressed_size' in item ? item.uncompressed_size : ('size' in item ? item.size : 0),
+        compressed_size: 0,
+        compression_ratio: 100,
+        is_dir: item.is_dir,
+        modified_timestamp: item.modified_timestamp,
+        checksum: '',
+      });
+      setPreviewContent(`File: ${item.path}\nSize: ${'size' in item ? item.size : 0} bytes\n(Binary or protected content)`);
+      setIsPreviewOpen(true);
     }
-    setIsPreviewOpen(true);
   };
 
   // Run Compression Workflow
-  const handleStartCompress = (options: any) => {
+  const handleStartCompress = async (options: any) => {
     setIsCompressOpen(false);
-    setProgressState({
-      active: true,
-      title: `Creating ${options.archiveName}`,
-      current_file: 'Scanning entropy and selecting optimal codecs...',
-      percentage: 5,
-      speed_mbs: 420.5,
-      cpu_pct: 78,
-      ram_mb: 240,
-      elapsed_secs: 1,
-      remaining_secs: 4,
-      original_bytes: 4800000,
-      compressed_bytes: 1200000,
-    });
-
-    let currentPct = 5;
-    const interval = setInterval(() => {
-      currentPct += 18;
-      if (currentPct >= 100) {
-        clearInterval(interval);
-        setProgressState((prev) => ({ ...prev, active: false }));
-        setArchiveName(options.archiveName);
-        if (options.comment) setArchiveComment(options.comment);
-      } else {
-        setProgressState((prev) => ({
-          ...prev,
-          percentage: currentPct,
-          current_file: `Compressing block #${Math.floor(currentPct / 10)} (${options.profile} mode)`,
-          speed_mbs: 650 + Math.random() * 120,
-          elapsed_secs: prev.elapsed_secs + 1,
-          remaining_secs: Math.max(0, prev.remaining_secs - 1),
-          compressed_bytes: Math.floor(prev.original_bytes * 0.35 * (currentPct / 100)),
-        }));
+    try {
+      // Determine target archive destination path
+      let targetArchive = options.archiveName;
+      if (!targetArchive.includes('\\') && !targetArchive.includes('/')) {
+        targetArchive = `${currentDirPath}\\${targetArchive}`;
       }
-    }, 350);
+
+      // Determine files to compress
+      const filesToCompress = selectedPaths.length > 0 ? selectedPaths : [currentDirPath];
+
+      setProgressState({
+        active: true,
+        title: `Creating ${options.archiveName}`,
+        current_file: 'Scanning entropy & executing multi-threaded compression pipeline...',
+        percentage: 15,
+        speed_mbs: 450,
+        cpu_pct: 85,
+        ram_mb: 280,
+        elapsed_secs: 1,
+        remaining_secs: 2,
+        original_bytes: 1000000,
+        compressed_bytes: 350000,
+      });
+
+      const res = await ipc.createArchive(
+        targetArchive,
+        filesToCompress,
+        options.profile,
+        options.password,
+        options.solidMode === 'smart'
+      );
+
+      setProgressState((p) => ({ ...p, active: false }));
+
+      // Automatically open the new archive in Archive Manager mode
+      await handleOpenArchive(targetArchive);
+    } catch (err: any) {
+      setProgressState((p) => ({ ...p, active: false }));
+      alert(lang === 'ar' ? `فشل إنشاء الأرشيف: ${err}` : `Compression failed: ${err}`);
+    }
   };
 
   // Run Extraction Workflow
-  const handleStartExtract = (options: ExtractOptions) => {
+  const handleStartExtract = async (options: ExtractOptions) => {
+    if (!archivePath) return;
     setIsExtractOpen(false);
-    setProgressState({
-      active: true,
-      title: `Extracting to ${options.destination}`,
-      current_file: 'Initializing defensive extraction stream...',
-      percentage: 10,
-      speed_mbs: 720.0,
-      cpu_pct: 35,
-      ram_mb: 95,
-      elapsed_secs: 1,
-      remaining_secs: 3,
-      original_bytes: summary.uncompressed_size,
-      compressed_bytes: summary.compressed_size,
-    });
+    try {
+      setProgressState({
+        active: true,
+        title: `Extracting to ${options.destination}`,
+        current_file: 'Extracting safe streams...',
+        percentage: 20,
+        speed_mbs: 850.0,
+        cpu_pct: 40,
+        ram_mb: 110,
+        elapsed_secs: 1,
+        remaining_secs: 2,
+        original_bytes: summary.uncompressed_size,
+        compressed_bytes: summary.compressed_size,
+      });
 
-    let currentPct = 10;
-    const interval = setInterval(() => {
-      currentPct += 25;
-      if (currentPct >= 100) {
-        clearInterval(interval);
-        setProgressState((prev) => ({ ...prev, active: false }));
-      } else {
-        setProgressState((prev) => ({
-          ...prev,
-          percentage: currentPct,
-          current_file: `Decompressing stream to ${options.destination}`,
-          speed_mbs: 850 + Math.random() * 100,
-          elapsed_secs: prev.elapsed_secs + 1,
-          remaining_secs: Math.max(0, prev.remaining_secs - 1),
-        }));
-      }
-    }, 300);
+      const extractedCount = await ipc.extractArchive(archivePath, options.destination);
+
+      setProgressState((p) => ({ ...p, active: false }));
+      alert(
+        lang === 'ar'
+          ? `تم الاستخراج بنجاح! تم فك ضغط ${extractedCount} ملف إلى:\n${options.destination}`
+          : `Extraction complete! Successfully unpacked ${extractedCount} items to:\n${options.destination}`
+      );
+    } catch (err: any) {
+      setProgressState((p) => ({ ...p, active: false }));
+      alert(lang === 'ar' ? `فشل الاستخراج: ${err}` : `Extraction failed: ${err}`);
+    }
   };
 
   // Run Archive Test Workflow
-  const handleTestArchive = () => {
-    setProgressState({
-      active: true,
-      title: `Testing integrity of ${archiveName}`,
-      current_file: 'Validating cryptographic block hashes & Reed-Solomon parity...',
-      percentage: 15,
-      speed_mbs: 1100.0,
-      cpu_pct: 60,
-      ram_mb: 120,
-      elapsed_secs: 1,
-      remaining_secs: 2,
-      original_bytes: summary.uncompressed_size,
-      compressed_bytes: summary.compressed_size,
-    });
+  const handleTestArchive = async () => {
+    if (!archivePath) return;
+    try {
+      setProgressState({
+        active: true,
+        title: `Testing integrity of ${archivePath.split('\\').pop()}`,
+        current_file: 'Verifying BLAKE3/CRC32 checksums & Reed-Solomon parity records...',
+        percentage: 30,
+        speed_mbs: 1200.0,
+        cpu_pct: 65,
+        ram_mb: 130,
+        elapsed_secs: 1,
+        remaining_secs: 1,
+        original_bytes: summary.uncompressed_size,
+        compressed_bytes: summary.compressed_size,
+      });
 
-    let currentPct = 15;
-    const interval = setInterval(() => {
-      currentPct += 28;
-      if (currentPct >= 100) {
-        clearInterval(interval);
-        setProgressState((prev) => ({ ...prev, active: false }));
+      const testResult = await ipc.testArchive(archivePath);
+
+      setProgressState((p) => ({ ...p, active: false }));
+
+      if (testResult.valid) {
         alert(
           lang === 'ar'
-            ? 'اكتمل الفحص بنجاح 100% — لا توجد أي أخطاء، كافة البصمات والكتل متطابقة وسليمة تماماً!'
-            : '100% Test Complete — No errors detected. All cryptographic checksums & blocks verified OK!'
+            ? `اكتمل الفحص بنجاح 100%!\nتم فحص ${testResult.tested_files} ملف.\nكافة الكتل والبصمات والبيانات متطابقة وسليمة تماماً.`
+            : `100% Test Complete!\nTested ${testResult.tested_files} items.\nAll cryptographic hashes & Reed-Solomon recovery parity blocks verified OK!`
         );
       } else {
-        setProgressState((prev) => ({
-          ...prev,
-          percentage: currentPct,
-          current_file: `Verifying SHA-256 / BLAKE3 checksums for block #${Math.floor(currentPct / 12)}`,
-          speed_mbs: 1150 + Math.random() * 80,
-          elapsed_secs: prev.elapsed_secs + 1,
-          remaining_secs: Math.max(0, prev.remaining_secs - 1),
-        }));
+        alert(
+          lang === 'ar'
+            ? `تم العثور على أخطاء في الأرشيف:\n${testResult.errors.join('\n')}`
+            : `Errors detected in archive:\n${testResult.errors.join('\n')}`
+        );
       }
-    }, 300);
+    } catch (err: any) {
+      setProgressState((p) => ({ ...p, active: false }));
+      alert(`Test error: ${err}`);
+    }
   };
 
-  // Run Benchmark Workflow
+  // Run Real Multi-codec Benchmark
   const handleRunBenchmark = async () => {
     setIsBenchmarking(true);
-    setTimeout(() => {
-      setBenchmarkReport({
-        total_input_mb: 5.0,
-        results: [
-          {
-            codec_name: 'Store (None)',
-            input_size_bytes: 5242880,
-            compressed_size_bytes: 5242880,
-            compression_ratio_pct: 100.0,
-            compression_speed_mbs: 1150.0,
-            decompression_speed_mbs: 1150.0,
-            compression_time_ms: 4,
-            decompression_time_ms: 4,
-          },
-          {
-            codec_name: 'LZ4 (Real-time)',
-            input_size_bytes: 5242880,
-            compressed_size_bytes: 23100,
-            compression_ratio_pct: 0.44,
-            compression_speed_mbs: 980.5,
-            decompression_speed_mbs: 1050.0,
-            compression_time_ms: 5,
-            decompression_time_ms: 4,
-          },
-          {
-            codec_name: 'Deflate (Fast)',
-            input_size_bytes: 5242880,
-            compressed_size_bytes: 27500,
-            compression_ratio_pct: 0.52,
-            compression_speed_mbs: 480.0,
-            decompression_speed_mbs: 920.0,
-            compression_time_ms: 11,
-            decompression_time_ms: 5,
-          },
-          {
-            codec_name: 'Brotli (Text Max)',
-            input_size_bytes: 5242880,
-            compressed_size_bytes: 2100,
-            compression_ratio_pct: 0.04,
-            compression_speed_mbs: 210.0,
-            decompression_speed_mbs: 450.0,
-            compression_time_ms: 24,
-            decompression_time_ms: 11,
-          },
-          {
-            codec_name: 'LZMA2 (Ultra Ratio)',
-            input_size_bytes: 5242880,
-            compressed_size_bytes: 1840,
-            compression_ratio_pct: 0.03,
-            compression_speed_mbs: 95.0,
-            decompression_speed_mbs: 850.0,
-            compression_time_ms: 55,
-            decompression_time_ms: 6,
-          },
-        ],
-        overall_score: 9840,
-      });
+    try {
+      const rep = await ipc.runBenchmark(10);
+      setBenchmarkReport(rep);
+    } catch (err: any) {
+      alert(`Benchmark error: ${err}`);
+    } finally {
       setIsBenchmarking(false);
-    }, 1200);
+    }
   };
 
-  // Run Duplicate Scanner
-  const handleScanDuplicates = () => {
+  // Run Real Duplicate Finder
+  const handleScanDuplicates = async () => {
     setIsScanningDuplicates(true);
-    setTimeout(() => {
-      setDuplicates([
-        {
-          hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-          file_size: 4200000,
-          potential_savings: 4200000,
-          file_paths: ['build/archive_old.tar', 'backup/copy_archive_old.tar'],
-        },
-      ]);
+    try {
+      const results = await ipc.findDuplicates(currentDirPath);
+      setDuplicates(results);
+    } catch (err: any) {
+      alert(`Duplicate scan error: ${err}`);
+    } finally {
       setIsScanningDuplicates(false);
-    }, 1000);
+    }
   };
 
   return (
-    <div className={`h-screen flex flex-col font-sans select-none ${theme === 'dark' ? 'dark' : ''}`}>
-      {/* 1. Classic Top Menu Bar */}
+    <div className={`h-screen flex flex-col font-sans select-none overflow-hidden ${theme === 'dark' ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'}`}>
+      {/* Top Menu Bar */}
       <MenuBar
         lang={lang}
         onNew={() => setIsCompressOpen(true)}
-        onOpen={() => alert(lang === 'ar' ? 'حدد ملف أرشيف للفتح' : 'Select an archive to open')}
-        onExtract={() => setIsExtractOpen(true)}
-        onTest={handleTestArchive}
+        onOpen={handleBrowseOpenArchive}
+        onExtract={() => archivePath && setIsExtractOpen(true)}
+        onTest={() => archivePath && handleTestArchive()}
         onView={() => {
-          if (items.length > 0) handlePreview(items[0]);
+          if (selectedPaths.length > 0) {
+            const path = selectedPaths[0];
+            const item = fsItems.find((i) => i.path === path) || archiveSummary?.items.find((i) => i.path === path);
+            if (item) handlePreview(item as any);
+          }
         }}
         onDelete={handleDeleteSelected}
         onSelectAll={handleSelectAll}
@@ -449,28 +483,31 @@ export const App: React.FC = () => {
         onInfo={() => setIsInfoOpen(true)}
         onRepair={() => setIsRepairOpen(true)}
         onBenchmark={() => setIsBenchmarkOpen(true)}
-        onConvert={() => alert(lang === 'ar' ? 'تحويل الأرشيف' : 'Convert Archive')}
+        onConvert={() => {}}
         onComment={() => setIsCommentOpen(true)}
         onSettings={() => setIsSettingsOpen(true)}
         onAbout={() => setIsAboutOpen(true)}
-        hasActiveArchive={!!archiveName}
+        hasActiveArchive={mode === 'archive_manager'}
       />
 
-      {/* 2. Iconic WinRAR-Style Toolbar */}
+      {/* Main WinRAR-Style Toolbar */}
       <Toolbar
         lang={lang}
         theme={theme}
         onToggleLang={() => setLang(lang === 'en' ? 'ar' : 'en')}
         onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         onAdd={() => setIsCompressOpen(true)}
-        onExtract={() => setIsExtractOpen(true)}
-        onTest={handleTestArchive}
+        onExtract={() => archivePath && setIsExtractOpen(true)}
+        onTest={() => archivePath && handleTestArchive()}
         onView={() => {
-          const item = items.find((i) => selectedPaths.includes(i.path)) || items[0];
-          if (item) handlePreview(item);
+          if (selectedPaths.length > 0) {
+            const path = selectedPaths[0];
+            const item = fsItems.find((i) => i.path === path) || archiveSummary?.items.find((i) => i.path === path);
+            if (item) handlePreview(item as any);
+          }
         }}
         onDelete={handleDeleteSelected}
-        onFind={() => {}}
+        onFind={() => setIsDuplicatesOpen(true)}
         onWizard={() => setIsCompressOpen(true)}
         onInfo={() => setIsInfoOpen(true)}
         onRepair={() => setIsRepairOpen(true)}
@@ -478,50 +515,53 @@ export const App: React.FC = () => {
         onComment={() => setIsCommentOpen(true)}
         onProtect={() => setIsCompressOpen(true)}
         onSettings={() => setIsSettingsOpen(true)}
-        hasActiveArchive={!!archiveName}
+        hasActiveArchive={mode === 'archive_manager'}
         hasSelection={selectedPaths.length > 0}
       />
 
-      {/* 3. Main Dual-Pane Work Area */}
+      {/* Main Workspace (Sidebar + Dual-Mode File Browser) */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Tree / Navigation Sidebar */}
         <Sidebar
           lang={lang}
           activeTab={activeTab}
           onSelectTab={setActiveTab}
           recentArchives={recentArchives}
-          onOpenArchive={(name: string) => {
-            setArchiveName(name);
-            setCurrentFolder('');
-          }}
+          onOpenArchive={handleOpenArchive}
+          drives={drives}
+          onSelectDrive={handleNavigateFs}
+          currentDirPath={currentDirPath}
         />
 
-        {/* Right Archive File Browser */}
         <FileBrowser
           lang={lang}
-          items={items}
-          archiveName={archiveName}
-          currentFolder={currentFolder}
-          onNavigateFolder={setCurrentFolder}
+          mode={mode}
+          currentDirPath={currentDirPath}
+          drives={drives}
+          fsItems={fsItems}
+          onNavigateFsDir={handleNavigateFs}
+          onOpenArchiveFile={handleOpenArchive}
+          onRefreshFs={handleRefreshFs}
+          archivePath={archivePath}
+          archiveItems={archiveSummary?.items || []}
+          archiveCurrentFolder={archiveCurrentFolder}
+          onNavigateArchiveFolder={setArchiveCurrentFolder}
+          onCloseArchive={handleCloseArchive}
           onPreview={handlePreview}
-          onExtractItem={(item) => {
-            setSelectedPaths([item.path]);
-            setIsExtractOpen(true);
-          }}
-          onDeleteItem={handleDeleteItem}
+          onExtractItem={() => archivePath && setIsExtractOpen(true)}
+          onDeleteItem={handleDeleteSelected}
           selectedPaths={selectedPaths}
           onToggleSelect={handleToggleSelect}
         />
       </div>
 
-      {/* 4. WinRAR Status Bar */}
+      {/* Bottom Status Bar */}
       <StatusBar
         lang={lang}
         summary={summary}
         selectedCount={selectedPaths.length}
       />
 
-      {/* 5. Modals and Dialogs */}
+      {/* ================= MODALS & DIALOGS ================= */}
       <CompressDialog
         lang={lang}
         isOpen={isCompressOpen}
@@ -531,7 +571,7 @@ export const App: React.FC = () => {
 
       <ExtractDialog
         lang={lang}
-        archiveName={archiveName || 'Archive.xrar'}
+        archiveName={archivePath?.split('\\').pop() || 'Archive.xrar'}
         isOpen={isExtractOpen}
         onClose={() => setIsExtractOpen(false)}
         onExtract={handleStartExtract}
@@ -539,25 +579,65 @@ export const App: React.FC = () => {
 
       <ArchiveInfoModal
         lang={lang}
-        archiveName={archiveName || 'Archive.xrar'}
-        summary={summary}
         isOpen={isInfoOpen}
         onClose={() => setIsInfoOpen(false)}
+        summary={summary}
+        archiveName={archivePath?.split('\\').pop() || 'Current Archive'}
       />
 
       <RepairModal
         lang={lang}
-        archiveName={archiveName || 'Archive.xrar'}
         isOpen={isRepairOpen}
         onClose={() => setIsRepairOpen(false)}
+        archiveName={archivePath?.split('\\').pop() || 'Current Archive'}
       />
 
       <CommentModal
         lang={lang}
-        comment={archiveComment}
         isOpen={isCommentOpen}
         onClose={() => setIsCommentOpen(false)}
+        comment={archiveComment}
         onSave={setArchiveComment}
+      />
+
+      <BenchmarkModal
+        lang={lang}
+        isOpen={isBenchmarkOpen}
+        onClose={() => setIsBenchmarkOpen(false)}
+        report={benchmarkReport}
+        onRunBenchmark={handleRunBenchmark}
+        isRunning={isBenchmarking}
+      />
+
+      <DuplicateFinderModal
+        lang={lang}
+        isOpen={isDuplicatesOpen}
+        onClose={() => setIsDuplicatesOpen(false)}
+        duplicates={duplicates}
+        onScanDirectory={handleScanDuplicates}
+        isScanning={isScanningDuplicates}
+        onArchiveDuplicates={(paths) => {
+          setSelectedPaths(paths);
+          setIsDuplicatesOpen(false);
+          setIsCompressOpen(true);
+        }}
+      />
+
+      <FilePreviewModal
+        lang={lang}
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        item={previewItem}
+        previewContent={previewContent}
+      />
+
+      <SettingsModal
+        lang={lang}
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        theme={theme}
+        onSetTheme={setTheme}
+        onSetLang={setLang}
       />
 
       <AboutModal
@@ -571,45 +651,8 @@ export const App: React.FC = () => {
         state={progressState}
         isPaused={isProgressPaused}
         onTogglePause={() => setIsProgressPaused(!isProgressPaused)}
-        onCancel={() => setProgressState((prev) => ({ ...prev, active: false }))}
-      />
-
-      <BenchmarkModal
-        lang={lang}
-        isOpen={isBenchmarkOpen}
-        onClose={() => setIsBenchmarkOpen(false)}
-        report={benchmarkReport}
-        isRunning={isBenchmarking}
-        onRunBenchmark={handleRunBenchmark}
-      />
-
-      <DuplicateFinderModal
-        lang={lang}
-        isOpen={isDuplicatesOpen}
-        onClose={() => setIsDuplicatesOpen(false)}
-        duplicates={duplicates}
-        isScanning={isScanningDuplicates}
-        onScanDirectory={async () => handleScanDuplicates()}
-        onArchiveDuplicates={() => {}}
-      />
-
-      <FilePreviewModal
-        lang={lang}
-        item={previewItem}
-        previewContent={previewContent}
-        isOpen={isPreviewOpen}
-        onClose={() => setIsPreviewOpen(false)}
-      />
-
-      <SettingsModal
-        lang={lang}
-        theme={theme}
-        onSetLang={setLang}
-        onSetTheme={setTheme}
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onCancel={() => setProgressState((p) => ({ ...p, active: false }))}
       />
     </div>
   );
 };
-export default App;
