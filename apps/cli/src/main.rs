@@ -114,6 +114,13 @@ enum Commands {
         /// Directory to analyze
         directory: PathBuf,
     },
+    /// Create a Windows self-extracting executable (.exe) from an .xrar archive
+    Sfx {
+        /// Input .xrar archive
+        archive: PathBuf,
+        /// Target .exe output file (defaults to archive name with .exe)
+        output: Option<PathBuf>,
+    },
 }
 
 fn main() -> ExitCode {
@@ -315,5 +322,58 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Commands::Sfx { archive, output } => {
+            let out_exe = output.unwrap_or_else(|| {
+                let mut p = archive.clone();
+                p.set_extension("exe");
+                p
+            });
+
+            let stub_candidates = [
+                PathBuf::from("dist/XRAR-1.0.0-SFX-Stub.exe"),
+                PathBuf::from("XRAR-1.0.0-SFX-Stub.exe"),
+                PathBuf::from("C:\\Program Files\\XRAR\\xrar-sfx.exe"),
+                std::env::current_exe().unwrap_or_default().with_file_name("xrar-sfx.exe"),
+            ];
+
+            let mut stub_bytes = None;
+            for cand in &stub_candidates {
+                if let Ok(bytes) = std::fs::read(cand) {
+                    stub_bytes = Some(bytes);
+                    break;
+                }
+            }
+
+            let stub = match stub_bytes {
+                Some(b) => b,
+                None => {
+                    eprintln!("Error: SFX stub binary (XRAR-1.0.0-SFX-Stub.exe) not found.");
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            match xrar_core::create_sfx_executable(&archive, &out_exe, &stub) {
+                Ok(size) => {
+                    if cli.json {
+                        println!(
+                            "{}",
+                            serde_json::json!({
+                                "status": "success",
+                                "sfx_executable": out_exe.display().to_string(),
+                                "file_size": size
+                            })
+                        );
+                    } else {
+                        println!("Successfully generated SFX archive: {}", out_exe.display());
+                        println!("  Size: {} bytes", size);
+                    }
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("SFX generation failed: {e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
     }
 }

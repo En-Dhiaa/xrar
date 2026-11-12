@@ -112,6 +112,20 @@ pub fn convert_to_xrar(
     Ok(result)
 }
 
+/// Generates a Windows self-extracting archive (.exe) by combining an SFX stub with a .xrar payload
+pub fn create_sfx_executable(
+    archive_path: &Path,
+    output_exe: &Path,
+    sfx_stub_bytes: &[u8],
+) -> Result<u64, CoreError> {
+    let archive_bytes = std::fs::read(archive_path)?;
+    let mut out_file = File::create(output_exe)?;
+    std::io::Write::write_all(&mut out_file, sfx_stub_bytes)?;
+    std::io::Write::write_all(&mut out_file, &archive_bytes)?;
+    let total_len = out_file.metadata()?.len();
+    Ok(total_len)
+}
+
 fn hex_encode(data: [u8; 32]) -> String {
     let mut s = String::with_capacity(64);
     for b in data {
