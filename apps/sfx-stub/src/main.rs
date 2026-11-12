@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::process::ExitCode;
-use xrar_core::{raw_extract, XrarReader, XRAR_MAGIC};
+use xrar_core::{raw_extract, XRAR_MAGIC};
 
 fn find_xrar_offset(file: &mut File) -> Option<u64> {
     let file_len = file.metadata().ok()?.len();

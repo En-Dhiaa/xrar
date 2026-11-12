@@ -41,6 +41,7 @@ New-Item -ItemType Directory -Path $TempPortable | Out-Null
 
 Copy-Item $TargetCli -Destination "$TempPortable\xrar.exe"
 Copy-Item $TargetGui -Destination "$TempPortable\xrar-gui.exe"
+Copy-Item "$ReleaseDir\WebView2Loader.dll" -Destination "$TempPortable\WebView2Loader.dll"
 Copy-Item $TargetSfx -Destination "$TempPortable\xrar-sfx.exe"
 Copy-Item "$PSScriptRoot\..\apps\desktop\assets\icon.ico" -Destination "$TempPortable\icon.ico"
 Copy-Item "$PSScriptRoot\..\apps\desktop\assets\icon.png" -Destination "$TempPortable\icon.png"

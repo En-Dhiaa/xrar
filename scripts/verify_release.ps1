@@ -51,6 +51,7 @@ Write-Host "`n[3/5] Verifying installed binaries and payload integrity..." -Fore
 $ExpectedFiles = @(
     "xrar.exe",
     "xrar-gui.exe",
+    "WebView2Loader.dll",
     "xrar-sfx.exe",
     "icon.ico",
     "icon.png",

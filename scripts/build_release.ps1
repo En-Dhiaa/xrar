@@ -67,6 +67,7 @@ New-Item -ItemType Directory -Force -Path $DistDir | Out-Null
 Copy-Item "$TargetDir\xrar-setup.exe" "$DistDir\XRAR-$Version-Setup.exe" -Force
 Copy-Item "$TargetDir\xrar.exe" "$DistDir\xrar-cli.exe" -Force
 Copy-Item "$TargetDir\xrar-gui.exe" "$DistDir\xrar-gui.exe" -Force
+Copy-Item "$TargetDir\WebView2Loader.dll" "$DistDir\WebView2Loader.dll" -Force
 Copy-Item "$TargetDir\xrar-sfx.exe" "$DistDir\xrar-sfx.exe" -Force
 
 # Run Portable Packager

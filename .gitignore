@@ -28,3 +28,4 @@ Thumbs.db
 test_out/
 /tests/fixtures/temp/
 apps/installer/payload/*.exe
+apps/installer/payload/*.dll

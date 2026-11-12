@@ -13,6 +13,7 @@ use std::time::Duration;
 const PAYLOAD_XRAR_EXE: &[u8] = include_bytes!("../payload/xrar.exe");
 const PAYLOAD_XRAR_GUI: &[u8] = include_bytes!("../payload/xrar-gui.exe");
 const PAYLOAD_XRAR_SFX: &[u8] = include_bytes!("../payload/xrar-sfx.exe");
+const PAYLOAD_WEBVIEW2_DLL: &[u8] = include_bytes!("../payload/WebView2Loader.dll");
 const PAYLOAD_ICON_ICO: &[u8] = include_bytes!("../payload/icon.ico");
 const PAYLOAD_ICON_PNG: &[u8] = include_bytes!("../payload/icon.png");
 const PAYLOAD_README: &[u8] = include_bytes!("../../../README.md");
@@ -174,6 +175,8 @@ fn perform_deployment(
         show_progress(2, total_steps, "Deploying XRAR Desktop Application...");
     }
     fs::write(&xrar_gui, PAYLOAD_XRAR_GUI).map_err(|e| format!("Failed to write xrar-gui.exe: {}", e))?;
+    fs::write(target_dir.join("WebView2Loader.dll"), PAYLOAD_WEBVIEW2_DLL)
+        .map_err(|e| format!("Failed to write WebView2Loader.dll: {}", e))?;
 
     if show_ui {
         show_progress(3, total_steps, "Deploying XRAR Command Line Engine...");
