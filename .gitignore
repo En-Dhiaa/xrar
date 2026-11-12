@@ -1,0 +1,29 @@
+# Rust / Cargo
+/target/
+**/*.rs.bk
+
+# Node / Web / Vite
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Tauri build artifacts
+src-tauri/target/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+[Dd]esktop.ini
+.DS_Store
+
+# Temporary & Test files
+*.tmp
+*.log
+test_out/
+/tests/fixtures/temp/
