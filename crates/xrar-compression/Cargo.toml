@@ -1,0 +1,11 @@
+[package]
+name = "xrar-compression"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+xrar-codecs = { path = "../xrar-codecs" }
+thiserror.workspace = true
+serde.workspace = true

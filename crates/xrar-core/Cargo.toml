@@ -1,0 +1,23 @@
+[package]
+name = "xrar-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+xrar-archive = { path = "../xrar-archive" }
+xrar-format = { path = "../xrar-format" }
+xrar-compression = { path = "../xrar-compression" }
+xrar-codecs = { path = "../xrar-codecs" }
+xrar-crypto = { path = "../xrar-crypto" }
+xrar-filesystem = { path = "../xrar-filesystem" }
+xrar-extractor = { path = "../xrar-extractor" }
+xrar-recovery = { path = "../xrar-recovery" }
+xrar-dedup = { path = "../xrar-dedup" }
+xrar-benchmark = { path = "../xrar-benchmark" }
+xrar-plugin-api = { path = "../xrar-plugin-api" }
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rayon.workspace = true

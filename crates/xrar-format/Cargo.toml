@@ -1,0 +1,14 @@
+[package]
+name = "xrar-format"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+xrar-codecs = { path = "../xrar-codecs" }
+xrar-crypto = { path = "../xrar-crypto" }
+zeroize.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true

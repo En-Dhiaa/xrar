@@ -1,0 +1,18 @@
+[package]
+name = "xrar-archive"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+xrar-format = { path = "../xrar-format" }
+xrar-filesystem = { path = "../xrar-filesystem" }
+xrar-compression = { path = "../xrar-compression" }
+xrar-codecs = { path = "../xrar-codecs" }
+xrar-crypto = { path = "../xrar-crypto" }
+zip.workspace = true
+tar.workspace = true
+flate2.workspace = true
+thiserror.workspace = true
+serde.workspace = true

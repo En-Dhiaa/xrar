@@ -1,0 +1,5 @@
+[build]
+target-dir = "C:/Users/USER/.cargo_target/xrar"
+
+[env]
+PATH = { value = "C:\\Users\\USER\\.rustup\\toolchains\\stable-x86_64-pc-windows-gnu\\lib\\rustlib\\x86_64-pc-windows-gnu\\bin\\self-contained;C:\\Users\\USER\\.cargo\\bin", relative = false }
