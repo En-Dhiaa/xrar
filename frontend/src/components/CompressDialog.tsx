@@ -3,14 +3,14 @@ import {
   X,
   Archive,
   Lock,
-  ShieldAlert,
   Layers,
-  Cpu,
   Sparkles,
   Sliders,
   CheckCircle2,
   HardDrive,
   AlertTriangle,
+  MessageSquare,
+  FileCheck,
 } from 'lucide-react';
 import { en } from '../locales/en';
 import { ar } from '../locales/ar';
@@ -28,6 +28,9 @@ interface CompressDialogProps {
     password?: string;
     recoveryRatio: number;
     splitVolumeMb?: number;
+    comment?: string;
+    testAfter?: boolean;
+    lockArchive?: boolean;
   }) => void;
 }
 
@@ -38,32 +41,23 @@ export const CompressDialog: React.FC<CompressDialogProps> = ({
   onStartCompress,
 }) => {
   const t = lang === 'ar' ? ar : en;
+  const [activeTab, setActiveTab] = useState<'general' | 'advanced' | 'comment'>('general');
 
   const [archiveName, setArchiveName] = useState('New_Archive');
   const [format, setFormat] = useState<SupportedFormat>('xrar');
   const [profile, setProfile] = useState<CompressionProfile>('smart');
-  const [solidMode, setSolidMode] = useState<SolidMode>('smart');
+  const [isSolid, setIsSolid] = useState(true);
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [recoveryRatio, setRecoveryRatio] = useState<number>(0.03);
+  const [encryptNames, setEncryptNames] = useState(true);
+  const [recoveryPercent, setRecoveryPercent] = useState<number>(3);
   const [splitVolumeMb, setSplitVolumeMb] = useState<number>(0);
+  const [testAfter, setTestAfter] = useState(false);
+  const [lockArchive, setLockArchive] = useState(false);
+  const [comment, setComment] = useState('');
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   if (!isOpen) return null;
-
-  // Password strength calculation
-  const getPasswordStrength = () => {
-    if (!password) return 0;
-    let score = 0;
-    if (password.length >= 8) score += 25;
-    if (password.length >= 12) score += 25;
-    if (/[A-Z]/.test(password)) score += 20;
-    if (/[0-9]/.test(password)) score += 15;
-    if (/[^A-Za-z0-9]/.test(password)) score += 15;
-    return Math.min(score, 100);
-  };
-
-  const strength = getPasswordStrength();
 
   const handleStart = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,18 +69,21 @@ export const CompressDialog: React.FC<CompressDialogProps> = ({
       archiveName: `${archiveName}.${format}`,
       format,
       profile,
-      solidMode,
+      solidMode: isSolid ? 'smart' : 'no_solid',
       password: password || undefined,
-      recoveryRatio,
+      recoveryRatio: recoveryPercent / 100.0,
       splitVolumeMb: splitVolumeMb > 0 ? splitVolumeMb : undefined,
+      comment: comment || undefined,
+      testAfter,
+      lockArchive,
     });
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+      <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="h-14 border-b border-slate-800 px-6 flex items-center justify-between bg-slate-900/90">
+        <div className="h-14 border-b border-slate-800 px-6 flex items-center justify-between bg-slate-950/70">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
               <Archive className="w-4 h-4" />
@@ -101,229 +98,291 @@ export const CompressDialog: React.FC<CompressDialogProps> = ({
           </button>
         </div>
 
-        {/* Content Body */}
-        <form onSubmit={handleStart} className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* Archive Name & Format */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="col-span-2 space-y-1.5">
-              <label className="text-xs font-semibold text-slate-300">
-                {t.compressDialog.archiveName}
-              </label>
-              <input
-                type="text"
-                value={archiveName}
-                onChange={(e) => setArchiveName(e.target.value)}
-                required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-300">
-                {t.compressDialog.format}
-              </label>
-              <select
-                value={format}
-                onChange={(e) => setFormat(e.target.value as SupportedFormat)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
-              >
-                <option value="xrar">.xrar (Native High Density)</option>
-                <option value="zip">.zip (Universal Standard)</option>
-                <option value="tar">.tar (UNIX Archive)</option>
-                <option value="7z">.7z (LZMA2 Archive)</option>
-              </select>
-            </div>
-          </div>
+        {/* Tab Navigation */}
+        <div className="flex border-b border-slate-800 bg-slate-950/40 px-6 pt-2 gap-2 text-xs">
+          <button
+            onClick={() => setActiveTab('general')}
+            className={`px-4 py-2 font-semibold border-b-2 transition ${
+              activeTab === 'general'
+                ? 'border-emerald-500 text-emerald-400 bg-slate-900/60 rounded-t-lg'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {t.compressDialog.tabGeneral}
+          </button>
+          <button
+            onClick={() => setActiveTab('advanced')}
+            className={`px-4 py-2 font-semibold border-b-2 transition ${
+              activeTab === 'advanced'
+                ? 'border-emerald-500 text-emerald-400 bg-slate-900/60 rounded-t-lg'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {t.compressDialog.tabAdvanced}
+          </button>
+          <button
+            onClick={() => setActiveTab('comment')}
+            className={`px-4 py-2 font-semibold border-b-2 transition ${
+              activeTab === 'comment'
+                ? 'border-emerald-500 text-emerald-400 bg-slate-900/60 rounded-t-lg'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {t.compressDialog.tabComment}
+          </button>
+        </div>
 
-          {/* Compression Profile Selector */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <Sliders className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{t.compressDialog.profile}</span>
-            </label>
-
-            <div className="grid grid-cols-3 gap-2">
-              {(['smart', 'fast', 'balanced', 'high', 'ultra', 'extreme'] as CompressionProfile[]).map(
-                (p) => {
-                  const isSelected = profile === p;
-                  return (
-                    <button
-                      type="button"
-                      key={p}
-                      onClick={() => setProfile(p)}
-                      className={`p-3 rounded-xl border text-start flex flex-col justify-between transition ${
-                        isSelected
-                          ? 'bg-emerald-500/15 border-emerald-500/50 text-white'
-                          : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between w-full mb-1">
-                        <span className="text-xs font-bold capitalize">
-                          {p === 'smart' ? '✨ Smart' : p}
-                        </span>
-                        {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
-                      </div>
-                      <span className="text-[10px] text-slate-400 leading-tight">
-                        {t.compressDialog.profiles[p]}
-                      </span>
-                    </button>
-                  );
-                }
-              )}
-            </div>
-
-            {profile === 'smart' && (
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] flex items-start gap-2">
-                <Sparkles className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
-                <p>{t.compressDialog.smartNotice}</p>
-              </div>
-            )}
-
-            {profile === 'extreme' && (
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
-                <p>{t.compressDialog.extremeWarning}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Solid Mode & Volumes */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                <span>{t.compressDialog.solidMode}</span>
-              </label>
-              <select
-                value={solidMode}
-                onChange={(e) => setSolidMode(e.target.value as SolidMode)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
-              >
-                <option value="smart">{t.compressDialog.solidOptions.smart}</option>
-                <option value="no_solid">{t.compressDialog.solidOptions.none}</option>
-                <option value="small">{t.compressDialog.solidOptions.small}</option>
-                <option value="medium">{t.compressDialog.solidOptions.medium}</option>
-                <option value="maximum">{t.compressDialog.solidOptions.maximum}</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                <HardDrive className="w-3.5 h-3.5 text-indigo-400" />
-                <span>{t.compressDialog.splitVolumes}</span>
-              </label>
-              <select
-                value={splitVolumeMb}
-                onChange={(e) => setSplitVolumeMb(Number(e.target.value))}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
-              >
-                <option value={0}>{t.compressDialog.splitOptions.none}</option>
-                <option value={100}>{t.compressDialog.splitOptions.mb100}</option>
-                <option value={500}>{t.compressDialog.splitOptions.mb500}</option>
-                <option value={1024}>{t.compressDialog.splitOptions.gb1}</option>
-                <option value={2048}>{t.compressDialog.splitOptions.gb2}</option>
-                <option value={4096}>{t.compressDialog.splitOptions.gb4}</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Recovery Records */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <ShieldAlert className="w-3.5 h-3.5 text-teal-400" />
-              <span>{t.compressDialog.recovery}</span>
-            </label>
-            <select
-              value={recoveryRatio}
-              onChange={(e) => setRecoveryRatio(Number(e.target.value))}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
-            >
-              <option value={0}>{t.compressDialog.recoveryOptions.none}</option>
-              <option value={0.01}>{t.compressDialog.recoveryOptions.one}</option>
-              <option value={0.03}>{t.compressDialog.recoveryOptions.three}</option>
-              <option value={0.05}>{t.compressDialog.recoveryOptions.five}</option>
-              <option value={0.1}>{t.compressDialog.recoveryOptions.ten}</option>
-            </select>
-          </div>
-
-          {/* Encryption (Optional AES-256-GCM) */}
-          <div className="pt-2 border-t border-slate-800 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
-              <Lock className="w-4 h-4 text-emerald-400" />
-              <span>{t.compressDialog.encryption}</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[11px] text-slate-400">
-                  {t.compressDialog.password}
+        {/* Tab Content */}
+        <form onSubmit={handleStart} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
+          {activeTab === 'general' && (
+            <>
+              {/* Archive Name & Format */}
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">
+                  {t.compressDialog.archiveName}:
                 </label>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={t.compressDialog.passwordPlaceholder}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[11px] text-slate-400">
-                  {t.compressDialog.passwordConfirm}
-                </label>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={passwordConfirm}
-                  onChange={(e) => setPasswordConfirm(e.target.value)}
-                  placeholder={t.compressDialog.passwordConfirm}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
-
-            {password && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[10px] text-slate-400">
-                  <span>Strength: {strength}%</span>
-                  <span
-                    className={
-                      strength > 75
-                        ? 'text-emerald-400'
-                        : strength > 40
-                        ? 'text-amber-400'
-                        : 'text-red-400'
-                    }
-                  >
-                    {strength > 75 ? 'Strong' : strength > 40 ? 'Moderate' : 'Weak'}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={archiveName}
+                    onChange={(e) => setArchiveName(e.target.value)}
+                    className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-mono text-xs focus:outline-none focus:border-emerald-500"
+                    required
+                  />
+                  <span className="font-mono text-slate-400 px-2 py-2 bg-slate-800 rounded-lg border border-slate-700">
+                    .{format}
                   </span>
                 </div>
-                <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-300 ${
-                      strength > 75
-                        ? 'bg-emerald-500'
-                        : strength > 40
-                        ? 'bg-amber-500'
-                        : 'bg-red-500'
-                    }`}
-                    style={{ width: `${strength}%` }}
-                  />
+              </div>
+
+              {/* Format selection */}
+              <div>
+                <span className="block text-slate-300 font-medium mb-1.5">
+                  {t.compressDialog.format}:
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['xrar', 'zip', '7z'] as SupportedFormat[]).map((f) => (
+                    <label
+                      key={f}
+                      className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border cursor-pointer font-bold transition ${
+                        format === f
+                          ? 'bg-emerald-500/15 border-emerald-500 text-emerald-400 shadow-sm shadow-emerald-500/10'
+                          : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="format"
+                        value={f}
+                        checked={format === f}
+                        onChange={() => setFormat(f)}
+                        className="hidden"
+                      />
+                      <span>.{f.toUpperCase()}</span>
+                      {f === 'xrar' && (
+                        <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300">
+                          Native
+                        </span>
+                      )}
+                    </label>
+                  ))}
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Footer Actions */}
-          <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
+              {/* Compression Method */}
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">
+                  {t.compressDialog.profile}:
+                </label>
+                <select
+                  value={profile}
+                  onChange={(e) => setProfile(e.target.value as CompressionProfile)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-xs focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="smart">{t.compressDialog.profiles.smart}</option>
+                  <option value="fast">{t.compressDialog.profiles.fast}</option>
+                  <option value="balanced">{t.compressDialog.profiles.balanced}</option>
+                  <option value="high">{t.compressDialog.profiles.high}</option>
+                  <option value="ultra">{t.compressDialog.profiles.ultra}</option>
+                  <option value="extreme">{t.compressDialog.profiles.extreme}</option>
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  {profile === 'smart'
+                    ? t.compressDialog.smartNotice
+                    : profile === 'extreme'
+                    ? t.compressDialog.extremeWarning
+                    : 'Balanced multi-codec LZMA2 / Zstd streaming.'}
+                </p>
+              </div>
+
+              {/* Split to volumes & Archiving Options */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">
+                    {t.compressDialog.splitVolumes}:
+                  </label>
+                  <select
+                    value={splitVolumeMb}
+                    onChange={(e) => setSplitVolumeMb(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-xs focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value={0}>{t.compressDialog.splitOptions.none}</option>
+                    <option value={100}>{t.compressDialog.splitOptions.mb100}</option>
+                    <option value={500}>{t.compressDialog.splitOptions.mb500}</option>
+                    <option value={1024}>{t.compressDialog.splitOptions.gb1}</option>
+                    <option value={2048}>{t.compressDialog.splitOptions.gb2}</option>
+                    <option value={4096}>{t.compressDialog.splitOptions.gb4}</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isSolid}
+                      onChange={(e) => setIsSolid(e.target.checked)}
+                      className="accent-emerald-500 rounded"
+                    />
+                    <span className="font-medium text-slate-200">{t.compressDialog.solidMode}</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={testAfter}
+                      onChange={(e) => setTestAfter(e.target.checked)}
+                      className="accent-emerald-500 rounded"
+                    />
+                    <span className="text-slate-300">{t.compressDialog.testAfter}</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={lockArchive}
+                      onChange={(e) => setLockArchive(e.target.checked)}
+                      className="accent-emerald-500 rounded"
+                    />
+                    <span className="text-slate-300">{t.compressDialog.lockArchive}</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Password button */}
+              <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordModalOpen(!isPasswordModalOpen)}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-lg border transition ${
+                    password
+                      ? 'bg-blue-500/20 border-blue-500 text-blue-300'
+                      : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
+                  }`}
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>{password ? 'Password Set (AES-256-GCM)' : t.compressDialog.setPassword}</span>
+                </button>
+                {password && (
+                  <span className="text-emerald-400 text-[11px] font-medium flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Encrypted with Argon2id KDF
+                  </span>
+                )}
+              </div>
+
+              {/* Password Panel if opened */}
+              {isPasswordModalOpen && (
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
+                  <div>
+                    <label className="block text-slate-400 mb-1">{t.compressDialog.password}:</label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={t.compressDialog.passwordPlaceholder}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100 text-xs focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 mb-1">{t.compressDialog.passwordConfirm}:</label>
+                    <input
+                      type="password"
+                      value={passwordConfirm}
+                      onChange={(e) => setPasswordConfirm(e.target.value)}
+                      placeholder={t.compressDialog.passwordConfirm}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100 text-xs focus:border-blue-500"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={encryptNames}
+                      onChange={(e) => setEncryptNames(e.target.checked)}
+                      className="accent-blue-500 rounded"
+                    />
+                    <span>{t.compressDialog.encryptNames}</span>
+                  </label>
+                </div>
+              )}
+            </>
+          )}
+
+          {activeTab === 'advanced' && (
+            <div className="space-y-4">
+              {/* Recovery record */}
+              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+                <label className="block font-semibold text-slate-200">
+                  {t.compressDialog.recovery}:
+                </label>
+                <p className="text-[11px] text-slate-400">
+                  Embeds Reed-Solomon GF(2^8) error correction blocks to recover archive in case of disk bad sectors.
+                </p>
+                <div className="grid grid-cols-4 gap-2 pt-1">
+                  {[0, 1, 3, 5, 10].map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => setRecoveryPercent(pct)}
+                      className={`py-2 rounded-lg border text-xs font-semibold transition ${
+                        recoveryPercent === pct
+                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
+                          : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                      }`}
+                    >
+                      {pct === 0 ? 'None (0%)' : `${pct}% Parity`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'comment' && (
+            <div className="space-y-2">
+              <label className="block text-slate-300 font-medium">
+                {t.comment.title}:
+              </label>
+              <textarea
+                rows={9}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder={t.comment.placeholder}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-slate-100 font-mono text-xs focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
+              />
+            </div>
+          )}
+
+          {/* Footer Buttons */}
+          <div className="pt-4 border-t border-slate-800 flex justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition"
             >
               {t.compressDialog.cancel}
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl text-xs font-bold text-slate-950 bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 shadow-lg shadow-emerald-500/20 active:scale-95 transition"
+              className="px-6 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold shadow-lg shadow-emerald-500/20 transition active:scale-95"
             >
               {t.compressDialog.compress}
             </button>

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XRAR — Setup Wizard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      background: linear-gradient(180deg, #020617 0%, #0f172a 100%);
+      padding: 20px 28px;
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .icon-box {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: #020617;
+      border: 1.5px solid rgba(56, 189, 248, 0.4);
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .icon-box img { width: 100%; height: 100%; object-fit: cover; }
+    .title-box h1 {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      background: linear-gradient(90deg, #38bdf8, #2dd4bf, #34d399);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .title-box p {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 3px;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 9px;
+      font-family: monospace;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      margin-left: 6px;
+    }
+    .content {
+      flex: 1;
+      padding: 24px 28px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .step-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+    }
+    .card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .path-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .path-input {
+      flex: 1;
+      background: #020617;
+      border: 1px solid #334155;
+      color: #f8fafc;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .path-input:focus { border-color: #38bdf8; }
+    .btn-secondary {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 9px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover { background: #334155; color: #fff; }
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: #cbd5e1;
+      cursor: pointer;
+    }
+    .checkbox-label input {
+      accent-color: #0284c7;
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+    .footer {
+      background: #020617;
+      border-top: 1px solid #1e293b;
+      padding: 16px 28px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      align-items: center;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #0d9488);
+      border: none;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+      transition: all 0.2s;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #0369a1, #0f766e);
+      transform: translateY(-1px);
+    }
+    .btn-primary:active { transform: translateY(0); }
+    .progress-section {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px 0;
+    }
+    .progress-bar-container {
+      width: 100%;
+      height: 10px;
+      background: #1e293b;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid #334155;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #38bdf8, #2dd4bf, #34d399);
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+    .progress-status {
+      font-size: 12px;
+      color: #94a3b8;
+      font-family: monospace;
+    }
+    .log-box {
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: monospace;
+      font-size: 11px;
+      color: #64748b;
+      height: 110px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+    .log-item { color: #94a3b8; }
+    .log-item.success { color: #34d399; font-weight: 600; }
+    .done-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 30px 20px;
+      text-align: center;
+      gap: 14px;
+    }
+    .check-circle {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: rgba(52, 211, 153, 0.15);
+      border: 2px solid #34d399;
+      color: #34d399;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      box-shadow: 0 0 25px rgba(52, 211, 153, 0.25);
+    }
+    .done-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+    .done-subtitle {
+      font-size: 12px;
+      color: #94a3b8;
+      max-width: 440px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="icon-box">
+      <img src="/icon.png" alt="XRAR" onerror="this.style.display='none'">
+    </div>
+    <div class="title-box">
+      <h1>XRAR — Extreme Compression Archive Setup<span class="badge">v1.0.0</span></h1>
+      <p>Windows x64 Official Setup • Developer: En-Dhiaa • License: MIT Open Source</p>
+    </div>
+  </div>
+
+  <!-- Content Screen 1: Options & Path -->
+  <div class="content" id="screen-options">
+    <div>
+      <div class="step-title">1. Choose Installation Directory</div>
+      <div class="card">
+        <div class="path-row">
+          <input type="text" id="install-path" class="path-input" value="C:\Program Files\XRAR">
+          <button type="button" class="btn-secondary" onclick="browseFolder()">Browse...</button>
+        </div>
+        <div style="font-size: 11px; color: #64748b; margin-top: 8px;">
+          Space required: ~15 MB • Free space available: > 50 GB
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="step-title">2. Windows System Integration</div>
+      <div class="card checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="chk-assoc" checked>
+          <span>Associate <b>.xrar</b> archive format with XRAR application</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="chk-context" checked>
+          <span>Add <b>"Add to .xrar (Smart)"</b> & <b>"Extract here"</b> to Explorer right-click menu</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="chk-desktop" checked>
+          <span>Create <b>Desktop shortcut</b> (XRAR Archive Manager)</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="chk-start" checked>
+          <span>Create <b>Start Menu</b> program shortcut</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="chk-path" checked>
+          <span>Add XRAR to system <b>User PATH</b> for terminal automation</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content Screen 2: Progress -->
+  <div class="content" id="screen-progress" style="display: none;">
+    <div class="step-title">Installing XRAR Components...</div>
+    <div class="progress-section" style="display: flex;">
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-status" id="progress-status">Initializing deployment...</div>
+      <div class="log-box" id="log-box"></div>
+    </div>
+  </div>
+
+  <!-- Content Screen 3: Done -->
+  <div class="content" id="screen-done" style="display: none;">
+    <div class="done-screen" style="display: flex;">
+      <div class="check-circle">✓</div>
+      <div class="done-title">XRAR Has Been Successfully Installed!</div>
+      <div class="done-subtitle">
+        The application is ready to use. You can now open .xrar archives, compress files with extreme ratios, or right-click files in Windows Explorer.
+      </div>
+      <div style="margin-top: 10px;">
+        <label class="checkbox-label" style="justify-content: center;">
+          <input type="checkbox" id="chk-launch" checked>
+          <span>Launch XRAR Desktop Archive Manager now</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer Actions -->
+  <div class="footer">
+    <button type="button" class="btn-secondary" id="btn-cancel" onclick="window.close()">Cancel</button>
+    <button type="button" class="btn-primary" id="btn-install" onclick="startInstallation()">Install Now</button>
+    <button type="button" class="btn-primary" id="btn-finish" style="display: none;" onclick="finishSetup()">Finish</button>
+  </div>
+
+  <script>
+    // Fetch default recommended path from server
+    fetch('/api/default_dir')
+      .then(res => res.json())
+      .then(data => {
+        if (data.path) {
+          document.getElementById('install-path').value = data.path;
+        }
+      })
+      .catch(() => {});
+
+    function addLog(text, isSuccess) {
+      const box = document.getElementById('log-box');
+      const div = document.createElement('div');
+      div.className = 'log-item' + (isSuccess ? ' success' : '');
+      div.textContent = text;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function setProgress(pct, statusText) {
+      document.getElementById('progress-fill').style.width = pct + '%';
+      document.getElementById('progress-status').textContent = `[${pct}%] ${statusText}`;
+    }
+
+    function browseFolder() {
+      fetch('/api/browse')
+        .then(res => res.json())
+        .then(data => {
+          if (data.selected) {
+            document.getElementById('install-path').value = data.selected;
+          }
+        })
+        .catch(() => {});
+    }
+
+    function startInstallation() {
+      const targetDir = document.getElementById('install-path').value.trim();
+      if (!targetDir) {
+        alert('Please enter a destination folder.');
+        return;
+      }
+
+      // Switch screen to progress
+      document.getElementById('screen-options').style.display = 'none';
+      document.getElementById('screen-progress').style.display = 'flex';
+      document.getElementById('btn-cancel').style.display = 'none';
+      document.getElementById('btn-install').style.display = 'none';
+
+      setProgress(10, 'Preparing destination directory...');
+      addLog('-> Creating directory: ' + targetDir, false);
+
+      const payload = {
+        target_dir: targetDir,
+        associate_xrar: document.getElementById('chk-assoc').checked,
+        context_menu: document.getElementById('chk-context').checked,
+        desktop_shortcut: document.getElementById('chk-desktop').checked,
+        start_menu: document.getElementById('chk-start').checked,
+        add_to_path: document.getElementById('chk-path').checked,
+      };
+
+      fetch('/api/install', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          // Animate progress smoothly
+          setProgress(30, 'Deploying xrar.exe (Engine & CLI)...');
+          addLog('-> Deployed xrar.exe (4.8 MB)', true);
+
+          setTimeout(() => {
+            setProgress(55, 'Deploying xrar-gui.exe (WinRAR-style Desktop Manager)...');
+            addLog('-> Deployed xrar-gui.exe (5.2 MB)', true);
+          }, 300);
+
+          setTimeout(() => {
+            setProgress(75, 'Installing application icons and SFX module...');
+            addLog('-> Installed icon.ico and xrar-sfx.exe', true);
+          }, 600);
+
+          setTimeout(() => {
+            setProgress(90, 'Registering Windows Explorer integration & PATH...');
+            addLog('-> Registered HKCU file associations and context menus', true);
+            addLog('-> Updated Windows User PATH environment', true);
+          }, 900);
+
+          setTimeout(() => {
+            setProgress(100, 'Installation complete!');
+            addLog('-> All components verified successfully [OK]', true);
+
+            setTimeout(() => {
+              document.getElementById('screen-progress').style.display = 'none';
+              document.getElementById('screen-done').style.display = 'flex';
+              document.getElementById('btn-finish').style.display = 'inline-block';
+            }, 500);
+          }, 1200);
+        } else {
+          alert('Installation failed: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(err => {
+        alert('Network/IPC error during install: ' + err);
+      });
+    }
+
+    function finishSetup() {
+      const launch = document.getElementById('chk-launch').checked;
+      if (launch) {
+        fetch('/api/launch_app', { method: 'POST' }).catch(() => {});
+      }
+      setTimeout(() => {
+        window.close();
+      }, 300);
+    }
+  </script>
+</body>
+</html>

@@ -124,6 +124,20 @@ enum Commands {
 }
 
 fn main() -> ExitCode {
+    let args: Vec<String> = std::env::args().collect();
+    // If double-clicked in Windows Explorer (no args) or explicitly requested --gui
+    if args.len() <= 1 || (args.len() == 2 && (args[1] == "--gui" || args[1] == "gui")) {
+        if let Ok(current_exe) = std::env::current_exe() {
+            if let Some(parent) = current_exe.parent() {
+                let gui_exe = parent.join("xrar-gui.exe");
+                if gui_exe.exists() {
+                    let _ = std::process::Command::new(&gui_exe).spawn();
+                    return ExitCode::SUCCESS;
+                }
+            }
+        }
+    }
+
     let cli = Cli::parse();
 
     match cli.command {

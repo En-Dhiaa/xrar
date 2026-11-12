@@ -1,0 +1,16 @@
+[package]
+name = "xrar-desktop"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "XRAR Desktop Graphical Archive Manager (WinRAR-like UI)"
+
+[[bin]]
+name = "xrar-gui"
+path = "src/main.rs"
+
+[dependencies]
+xrar-core = { path = "../../crates/xrar-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }

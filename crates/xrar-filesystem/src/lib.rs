@@ -27,6 +27,13 @@ pub fn normalize_archive_path(raw: &str) -> Result<String, FsError> {
         return Err(FsError::PathTraversal("Empty path is invalid".to_string()));
     }
 
+    // Reject absolute paths and drive prefixes
+    if raw.starts_with('/') || raw.starts_with('\\') || (raw.len() >= 2 && raw.chars().nth(1) == Some(':')) {
+        return Err(FsError::PathTraversal(format!(
+            "Absolute paths and drive prefixes are forbidden: {raw}"
+        )));
+    }
+
     // Replace Windows backslashes
     let sanitized = raw.replace('\\', "/");
     let parts: Vec<&str> = sanitized.split('/').collect();

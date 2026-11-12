@@ -22,6 +22,20 @@ export interface ArchiveSummary {
   compressed_size: number;
   format: string;
   items: ArchiveItem[];
+  comment?: string;
+  has_recovery_record?: boolean;
+  recovery_record_pct?: number;
+  is_solid?: boolean;
+  is_encrypted?: boolean;
+  encryption_algorithm?: string;
+  dictionary_size_kb?: number;
+}
+
+export interface ExtractOptions {
+  destination: string;
+  overwrite_mode: 'ask' | 'overwrite' | 'skip';
+  extract_to_subfolder: boolean;
+  open_folder_after: boolean;
 }
 
 export interface ProgressState {

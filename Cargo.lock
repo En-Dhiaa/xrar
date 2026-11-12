@@ -1113,6 +1113,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "xrar-desktop"
+version = "1.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "xrar-core",
+]
+
+[[package]]
 name = "xrar-extractor"
 version = "1.0.0"
 dependencies = [
